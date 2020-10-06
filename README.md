@@ -28,7 +28,7 @@ $ go get github.com/GGP1/atoll
 ## Features
 
 - Secret sanitization 
-    * Common patterns cleanup, code points normalization -NFKC- and space trimming
+    * Common patterns cleanup, input normalization -NFKC- and space trimming
 - Include characters/words/syllables in random positions
 - Exclude any characters/words/syllables
 - Secret entropy in bits

@@ -2,12 +2,9 @@ package atoll
 
 import (
 	"errors"
-	"math/rand"
+	"fmt"
 	"regexp"
 	"strings"
-	"time"
-
-	"golang.org/x/text/unicode/norm"
 )
 
 const (
@@ -74,6 +71,13 @@ func (p *Password) Generate() error {
 		return errors.New("atoll: included characters cannot be excluded")
 	}
 
+	// Normalize user input
+	p.Include = normalize(p.Include)
+	invalid, _ := regexp.MatchString(`[[:^graph:]]`, p.Include)
+	if invalid {
+		return errors.New("atoll: include contains invalid characters")
+	}
+
 	if len(p.Include) > int(p.Length) {
 		return errors.New("atoll: characters to include exceed the password length")
 	}
@@ -100,20 +104,26 @@ func (p *Password) Generate() error {
 	}
 
 	password = p.includeChars(password)
+	sanitized, err := p.sanitize(password, pool)
+	if err != nil {
+		return fmt.Errorf("atoll: %v", err)
+	}
 
-	p.Secret = p.Sanitize(password, pool)
+	p.Secret = sanitized
 	p.Entropy = calculateEntropy(poolLength, len(p.Secret))
 
 	return nil
 }
 
-// Sanitize clears common patterns, removes leading and trailing spaces and normalizes to NFKC.
-func (p *Password) Sanitize(password, pool []rune) string {
+// sanitize clears common patternsand removes leading and trailing spaces.
+func (p *Password) sanitize(password, pool []rune) (string, error) {
 	// If found common patterns, shuffle password
 	weak := regexp.MustCompile(commonPatterns).MatchString(string(password))
 	if weak {
-		rand.Seed(time.Now().UnixNano())
-		rand.Shuffle(len(password), func(i, j int) { password[i], password[j] = password[j], password[i] })
+		err := shuffle(len(password), func(i, j int) { password[i], password[j] = password[j], password[i] })
+		if err != nil {
+			return "", err
+		}
 	}
 
 	pwd := strings.TrimSpace(string(password))
@@ -126,9 +136,7 @@ func (p *Password) Sanitize(password, pool []rune) string {
 		}
 	}
 
-	normalizedPwd := norm.NFKC.String(pwd)
-
-	return normalizedPwd
+	return pwd, nil
 }
 
 // generatePool takes the format specified by the user and creates the pool to generate a random password.
@@ -165,19 +173,17 @@ func (p *Password) generatePool() ([]rune, error) {
 		}
 	}
 
-	join := strings.Join(characters, "")
+	pool := strings.Join(characters, "")
 
 	// Remove excluded characters from the pool
 	if p.Exclude != "" {
 		split := strings.Split(p.Exclude, "")
 		for _, s := range split {
-			join = strings.Replace(join, s, "", -1)
+			pool = strings.Replace(pool, s, "", -1)
 		}
 	}
 
-	pool := []rune(join)
-
-	return pool, nil
+	return []rune(pool), nil
 }
 
 // includeChars returns an array with the positions that include characters will occupy

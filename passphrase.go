@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-
-	"golang.org/x/text/unicode/norm"
 )
 
 var (
@@ -84,6 +82,8 @@ func (p *Passphrase) Generate(gen list) error {
 		}
 
 		for _, word := range p.Include {
+			// Normalize user input
+			word = normalize(word)
 			invalid, _ := regexp.MatchString(`[[:^graph:]]`, word)
 			if invalid {
 				return errors.New("atoll: included word contains invalid characters")
@@ -97,7 +97,6 @@ func (p *Passphrase) Generate(gen list) error {
 		p.excludeWords(gen)
 	}
 
-	p.Secret = norm.NFKC.String(p.Secret) // normalization
 	p.Entropy = p.entropyBits(gen)
 
 	return nil

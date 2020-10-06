@@ -12,20 +12,22 @@ func ExampleNewPassword() {
 	}
 
 	fmt.Println(password)
+	// Example output:
 	// ?{{5Rt%r3OrE}7?z
 }
 
 func ExampleNewPassphrase() {
-	passphrase, err := NewPassphrase(8, "/", nil, nil, NoList)
+	passphrase, err := NewPassphrase(5, "/", nil, nil, NoList)
 	if err != nil {
 		log.Fatalf("Failed creating passphrase: %v", err)
 	}
 
 	fmt.Println(passphrase)
-	// bku/wxnpeg/gaagvqocrns/pautyo/ciklw/fkqq/ovaoqv/zxoabgeo
+	// Example output:
+	// bdxiuivb/askyuionzaa/qojbkjizproh/oldir/heox
 }
 
-func ExamplePassword() {
+func ExamplePassword_Generate() {
 	p := &Password{
 		Length:  22,
 		Format:  []int{1, 2, 3},
@@ -42,9 +44,9 @@ func ExamplePassword() {
 	// Output: 129.4181470859605
 }
 
-func ExamplePassphrase() {
+func ExamplePassphrase_Generate() {
 	p := &Passphrase{
-		Length:    10,
+		Length:    8,
 		Separator: "&",
 		Include:   []string{"atoll"},
 		Exclude:   []string{"watermelon"},
@@ -54,6 +56,9 @@ func ExamplePassphrase() {
 		log.Fatalf("Couldn't generate the password: %v", err)
 	}
 
+	fmt.Println(p.Secret)
 	fmt.Println(p.Entropy)
+	// Example output:
+	// eremite&align&coward&casing&atoll&maximum&user&adult
 	// 962.9837392977805
 }

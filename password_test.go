@@ -67,6 +67,20 @@ func TestGeneratePassword(t *testing.T) {
 	}
 }
 
+func TestShuffle(t *testing.T) {
+	var p string = "%A$Ks#a0t14|&23"
+	password := []rune(p)
+
+	err := shuffle(len(password), func(i, j int) { password[i], password[j] = password[j], password[i] })
+	if err != nil {
+		t.Errorf("Failed shuffling password: %v", err)
+	}
+
+	if p == string(password) {
+		t.Errorf("Did not shuffle, expected something different, got: %s", string(password))
+	}
+}
+
 // poolLength returns the length of the pool used.
 // This is used for testing purposes only.
 func poolLength(include, exclude string, format []int) int {
