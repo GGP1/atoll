@@ -1,17 +1,19 @@
-package atoll
+package atoll_test
 
 import (
 	"strings"
 	"testing"
+
+	"github.com/GGP1/atoll"
 )
 
 func TestNewPassphrase(t *testing.T) {
-	password, err := NewPassphrase(4, " ", []string{"1234"}, []string{}, NoList)
+	passphrase, err := atoll.NewPassphrase(5, atoll.NoList)
 	if err != nil {
 		t.Errorf("Failed generating the passphrase: %v", err)
 	}
 
-	t.Log(password)
+	t.Log(passphrase)
 }
 
 func TestGeneratePassphrase(t *testing.T) {
@@ -20,7 +22,7 @@ func TestGeneratePassphrase(t *testing.T) {
 	t.Run("Syllable list", TestGeneratePassphrase_SyllableList)
 }
 
-var passphrases = []*Passphrase{
+var passphrases = []*atoll.Passphrase{
 	{Length: 14, Separator: "/", Include: []string{}, Exclude: []string{}},
 	{Length: 4, Separator: "", Include: []string{"apple"}, Exclude: []string{"banana"}},
 	{Length: 6, Separator: "==", Include: []string{"test"}, Exclude: []string{}},
@@ -28,10 +30,9 @@ var passphrases = []*Passphrase{
 }
 
 func TestGeneratePassphrase_NoList(t *testing.T) {
-	t.Parallel()
-
 	for _, p := range passphrases {
-		if err := p.Generate(NoList); err != nil {
+		p.List = atoll.NoList
+		if err := p.Generate(); err != nil {
 			t.Errorf("Failed generating the passphrase: %v", err)
 		}
 
@@ -51,10 +52,9 @@ func TestGeneratePassphrase_NoList(t *testing.T) {
 }
 
 func TestGeneratePassphrase_WordList(t *testing.T) {
-	t.Parallel()
-
 	for _, p := range passphrases {
-		if err := p.Generate(WordList); err != nil {
+		p.List = atoll.WordList
+		if err := p.Generate(); err != nil {
 			t.Errorf("Failed generating the passphrase: %v", err)
 		}
 
@@ -65,10 +65,9 @@ func TestGeneratePassphrase_WordList(t *testing.T) {
 }
 
 func TestGeneratePassphrase_SyllableList(t *testing.T) {
-	t.Parallel()
-
 	for _, p := range passphrases {
-		if err := p.Generate(SyllableList); err != nil {
+		p.List = atoll.SyllableList
+		if err := p.Generate(); err != nil {
 			t.Errorf("Failed generating the passphrase: %v", err)
 		}
 
@@ -80,7 +79,8 @@ func TestGeneratePassphrase_SyllableList(t *testing.T) {
 
 func TestIncludeWords(t *testing.T) {
 	for _, p := range passphrases {
-		if err := p.Generate(WordList); err != nil {
+		p.List = atoll.WordList
+		if err := p.Generate(); err != nil {
 			t.Errorf("Failed generating the passphrase: %v", err)
 		}
 
@@ -94,7 +94,8 @@ func TestIncludeWords(t *testing.T) {
 
 func TestExcludeWords(t *testing.T) {
 	for _, p := range passphrases {
-		if err := p.Generate(WordList); err != nil {
+		p.List = atoll.WordList
+		if err := p.Generate(); err != nil {
 			t.Errorf("Failed generating the passphrase: %v", err)
 		}
 

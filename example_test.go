@@ -1,12 +1,28 @@
-package atoll
+package atoll_test
 
 import (
 	"fmt"
 	"log"
+
+	"github.com/GGP1/atoll"
 )
 
+func ExampleNewSecret() {
+	password := &atoll.Password{
+		Length: 30,
+	}
+
+	if err := atoll.NewSecret(password); err != nil {
+		log.Fatalf("Failed creating secret: %v", err)
+	}
+
+	fmt.Println(password.Secret)
+	// Example output:
+	// .$'v_kcBg42;U\Ot`fY<%Ps:~aNoKi
+}
+
 func ExampleNewPassword() {
-	password, err := NewPassword(16, []int{1, 2, 3, 4, 5}, "", "", true)
+	password, err := atoll.NewPassword(16, []int{1, 2, 3, 4, 5})
 	if err != nil {
 		log.Fatalf("Failed creating password: %v", err)
 	}
@@ -17,7 +33,7 @@ func ExampleNewPassword() {
 }
 
 func ExampleNewPassphrase() {
-	passphrase, err := NewPassphrase(5, "/", nil, nil, NoList)
+	passphrase, err := atoll.NewPassphrase(5, atoll.NoList)
 	if err != nil {
 		log.Fatalf("Failed creating passphrase: %v", err)
 	}
@@ -28,7 +44,7 @@ func ExampleNewPassphrase() {
 }
 
 func ExamplePassword_Generate() {
-	p := &Password{
+	p := &atoll.Password{
 		Length:  22,
 		Format:  []int{1, 2, 3},
 		Include: "1+=",
@@ -41,18 +57,19 @@ func ExamplePassword_Generate() {
 	}
 
 	fmt.Println(p.Entropy)
-	// Output: 129.4181470859605
+	// Output: 131.50015831699815
 }
 
 func ExamplePassphrase_Generate() {
-	p := &Passphrase{
+	p := &atoll.Passphrase{
 		Length:    8,
 		Separator: "&",
+		List:      atoll.WordList,
 		Include:   []string{"atoll"},
 		Exclude:   []string{"watermelon"},
 	}
 
-	if err := p.Generate(WordList); err != nil {
+	if err := p.Generate(); err != nil {
 		log.Fatalf("Couldn't generate the password: %v", err)
 	}
 

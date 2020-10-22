@@ -7,7 +7,7 @@ import (
 )
 
 func TestNewPassword(t *testing.T) {
-	password, err := NewPassword(10, []int{2, 4}, "", "", true)
+	password, err := NewPassword(15, []int{1, 2, 3})
 	if err != nil {
 		t.Errorf("Failed generating the password: %v", err)
 	}

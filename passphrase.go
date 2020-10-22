@@ -13,8 +13,7 @@ var (
 		"p", "q", "r", "s", "t", "v", "w", "x", "y", "z"}
 )
 
-// Passphrase represents a sequence of words/syllables with a separator
-// between them.
+// Passphrase represents a sequence of words/syllables with a separator between them.
 type Passphrase struct {
 	Secret string
 
@@ -23,6 +22,8 @@ type Passphrase struct {
 
 	// Words separator.
 	Separator string
+
+	List list
 
 	// Words that will be part of the passphrase.
 	Include []string
@@ -39,25 +40,22 @@ type Passphrase struct {
 
 type list func(p *Passphrase)
 
-// NewPassphrase creates a passphrase and returns only the secret.
-func NewPassphrase(length uint64, separator string, include, exclude []string, l list) (string, error) {
+// NewPassphrase returns a random passphrase.
+func NewPassphrase(length uint64, l list) (string, error) {
 	p := &Passphrase{
-		Length:    length,
-		Separator: separator,
-		Include:   include,
-		Exclude:   exclude,
+		Length: length,
+		List:   l,
 	}
 
-	err := p.Generate(l)
-	if err != nil {
+	if err := p.Generate(); err != nil {
 		return "", err
 	}
 
 	return p.Secret, nil
 }
 
-// Generate generates a passphrase using the chosen list.
-func (p *Passphrase) Generate(gen list) error {
+// Generate generates a random passphrase.
+func (p *Passphrase) Generate() error {
 	if p.Length < 1 {
 		return errors.New("atoll: passphrase length must be equal to or higher than 1")
 	}
@@ -70,8 +68,12 @@ func (p *Passphrase) Generate(gen list) error {
 		p.Separator = " "
 	}
 
+	if p.List == nil {
+		p.List = NoList
+	}
+
 	// Generate the secret with the list specified
-	gen(p)
+	p.List(p)
 
 	if len(p.Include) != 0 {
 		incl := strings.Join(p.Include, p.Separator)
@@ -94,16 +96,15 @@ func (p *Passphrase) Generate(gen list) error {
 	}
 
 	if len(p.Exclude) != 0 {
-		p.excludeWords(gen)
+		p.excludeWords(p.List)
 	}
 
-	p.Entropy = p.entropyBits(gen)
+	p.Entropy = p.entropyBits(p.List)
 
 	return nil
 }
 
-// NoList generates a random passphrase without using a list, making the potential
-// attacker work harder.
+// NoList generates a random passphrase without using a list, making the potential attacker work harder.
 //
 // Words length are randomly selected between 3 and 12 letters.
 //
@@ -165,44 +166,43 @@ func (p *Passphrase) entropyBits(m list) float64 {
 		poolLen = len(atollSyllables)
 	}
 
-	poolLen -= len(p.Include)
+	poolLen += len(p.Include)
 	poolLen -= len(p.Exclude)
 
 	return calculateEntropy(poolLen, len(p.Secret))
 }
 
-// Determine include indices and replace the existing word with an
-// included one.
+// Determine include indices and replace the existing word with an included one.
 //
 // This way we are replacing words instead of reserving indices for them, but
 // doing it the other way makes the algorithm much more complicated to follow.
 func (p *Passphrase) includeWords() {
-	inclIndices := make([]int, len(p.Include))
-	passIndices := make([]int, int(p.Length))
+	indices := make([]int, len(p.Include))
+	pwdIndices := make([]int, int(p.Length))
 
 	for i := 0; i < int(p.Length); i++ {
-		passIndices[i] = i
+		pwdIndices[i] = i
 	}
 
-	for j := range inclIndices {
-		n := randInt(len(passIndices))
-		index := passIndices[n]
+	for i := range indices {
+		n := randInt(len(pwdIndices))
+		index := pwdIndices[n]
 
 		// Remove the selected index from the array to not overwrite them
-		passIndices = append(passIndices[:n], passIndices[n+1:]...)
+		pwdIndices = append(pwdIndices[:n], pwdIndices[n+1:]...)
 
-		inclIndices[j] = index
+		indices[i] = index
 	}
 
 	words := strings.Split(p.Secret, p.Separator)
 
-	for w := range words {
-		for _, i := range inclIndices {
-			if w == i {
-				word := randInt(len(p.Include))
-				words[w] = p.Include[word]
+	for i := range words {
+		for _, j := range indices {
+			if i == j {
+				n := randInt(len(p.Include))
+				words[i] = p.Include[n]
 				// Remove the word used
-				p.Include = append(p.Include[:word], p.Include[word+1:]...)
+				p.Include = append(p.Include[:n], p.Include[n+1:]...)
 			}
 		}
 	}
@@ -232,8 +232,8 @@ func (p *Passphrase) excludeWords(m list) {
 						}
 					}
 
-					w := strings.Join(syllables, "")
-					words[i] = w
+					word := strings.Join(syllables, "")
+					words[i] = word
 
 				case "WordList":
 					words[i] = atollWords[randInt(len(atollWords))]

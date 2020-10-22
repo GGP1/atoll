@@ -14,8 +14,8 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-const commonPatterns string = `(?i)abc|123|1111|qwerty|asdf|zxcv|
-1qaz|zaq1|qazwsx|pass|login|admin|master`
+const commonPatterns string = `(?i)abc|123|qwerty|asdf|zxcv|1qaz|
+zaq1|qazwsx|pass|login|admin|master`
 
 // calculateEntropy returns the secret security information.
 func calculateEntropy(poolLength, secretLength int) float64 {

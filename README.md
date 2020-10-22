@@ -22,7 +22,7 @@ Atoll is a package for generating secure random secrets.
 ## Installation
 
 ```
-$ go get github.com/GGP1/atoll
+go get -u github.com/GGP1/atoll
 ```
 
 ## Features
@@ -43,7 +43,42 @@ $ go get github.com/GGP1/atoll
 
 ## Examples
 
-Head over [example_test.go](/example_test.go) to see some examples.
+Head over [example_test.go](/example_test.go) to see more examples.
+
+```
+package main
+
+import (
+    "fmt"
+    "log"
+
+    "github.com/GGP1/atoll"
+)
+
+func main() {
+    p := &atoll.Password{
+        Length: 16,
+        Format: []int{1, 2, 3, 4, 5},
+        Include: "á&1",
+        Repeat: true,
+    }
+
+    // You could use p.Generate() instead aswell (NewSecret calls it under the hood)
+    if err := atoll.NewSecret(p); err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Println(p.Secret)
+
+    // A simpler way
+    password2, err := atoll.NewPassword(20, []int{1, 2, 3, 4})
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Println(password2)
+}
+```
 
 ## Documentation
 
@@ -60,15 +95,18 @@ Head over [example_test.go](/example_test.go) to see some examples.
 ### Passphrases options
 
 Atoll offers 3 ways of generating a passphrase:
-    - *Without* a list <NoList>: generate random numbers that determine the word length (between 3 and 12 letters) and if the letter is a vowel or a constant (4/10 times a vowel is selected). Note that not using a list makes the potential attacker job harder.
-    - With a *Word* list <WordList>: random words are taken from a 18,235 long word list.
-    - With a *Syllable* list <SyllableList>: random syllables are taken from a 10,129 long syllable list.
+
+- **Without** a list (*NoList*): generate random numbers that determine the word length (between 3 and 12 letters) and if the letter is a vowel or a constant (4/10 times a vowel is selected). Note that not using a list makes the potential attacker job harder.
+
+- With a **Word** list (*WordList*): random words are taken from a 18,235 long word list.
+    
+- With a **Syllable** list (*SyllableList*): random syllables are taken from a 10,129 long syllable list.
 
 ### Randomness
 
-> Note: randomness is a measure of the observer's ignorance, not an inherent quality of a process.
+> Randomness is a measure of the observer's ignorance, not an inherent quality of a process.
 
-Having this into account, atoll uses the crypto/rand package to generate **cryptographically secure** random numbers and using them to select characters/words/syllables from different pools.
+Having this into account, Atoll uses the crypto/rand package to generate **cryptographically secure** random numbers and using them to select characters/words/syllables from different pools.
 
 ### Entropy
 
@@ -82,27 +120,36 @@ In case you want to obtain more information about the secret security, here are 
 
 > What is calculated is the 50% of a brute force attack (this is the average an attacker will take to crack the password). Dictionary and social engineering attacks (like shoulder surfing. pretexting, etc) are left out of consideration.
 
-- Number of *possible secrets* that the algorithm can generate: entropy ^ 2
+- Number of *possible secrets* that the algorithm can generate: 2 ^ entropy
 
-- Number of *attempts* to crack the secret: (entropy ^ 2) / 2
+- Number of *attempts* to crack the secret: (2 ^ entropy) / 2
 
 - Seconds to crack: 
-    > 1,000,000,000,000,000 (1 trilon) is the number of guesses per second Edward Snowden said we should be prepared for
-    * Password: (((entropy ^ 2) / 1,000,000,000,000,000) / 2)
+    > 1,000,000,000,000,000 (1 trillion) is the number of guesses per second Edward Snowden said we should be prepared for
+    * Password: (((2 ^ entropy) / 1,000,000,000,000,000) / 2)
     * Passphrase: 
-        words := strings.Split(p.Secret, p.Separator)
+
+        ```words := strings.Split(p.Secret, p.Separator)```
+
         NoList: 26^eachWordLen^len(words) -> iterate over words and sum each word length
-        WordList and SyllableList: (((entropy ^ 2) - len(words)) / 1,000,000,000,000,000) / 2
+
+        WordList and SyllableList: (((2 ^ entropy) - len(words)) / 1,000,000,000,000,000) / 2
 
 ## Benchmarks
 
+GOOS: windows
+GOARCH: amd64
+GOMAXPROCS: 6
+
 ```
-BenchmarkNewPassword                     52402             21698 ns/op      
-BenchmarkPassword                        54054             21738 ns/op      
-BenchmarkNewPassphrase                   24340             47618 ns/op      
-BenchmarkPassphrase_NoList               26902             45387 ns/op      
-BenchmarkPassphrase_WordList            279070              3852 ns/op      
-BenchmarkPassphrase_SyllableList        315930              3611 ns/op 
+BenchmarkNewSecret_Password              40677             28934 ns/op
+BenchmarkNewPassword                     48440             24841 ns/op
+BenchmarkPassword                        41396             29054 ns/op
+BenchmarkNewSecret_Passphrase            29481             40635 ns/op
+BenchmarkNewPassphrase                   29337             40563 ns/op
+BenchmarkPassphrase_NoList               29481             40826 ns/op
+BenchmarkPassphrase_WordList            333084              3372 ns/op
+BenchmarkPassphrase_SyllableList        363642              3179 ns/op
 ```
 
 ## License
