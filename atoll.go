@@ -2,10 +2,10 @@ package atoll
 
 // Secret is the interface that wraps the basic method Generate.
 type Secret interface {
-	Generate() error
+	Generate() (string, error)
 }
 
 // NewSecret generates a new secret.
-func NewSecret(secret Secret) error {
+func NewSecret(secret Secret) (string, error) {
 	return secret.Generate()
 }

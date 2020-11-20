@@ -1,108 +1,117 @@
-package atoll_test
+package atoll
 
 import (
 	"strings"
 	"testing"
-
-	"github.com/GGP1/atoll"
 )
 
-func TestNewPassphrase(t *testing.T) {
-	passphrase, err := atoll.NewPassphrase(5, atoll.NoList)
-	if err != nil {
-		t.Errorf("Failed generating the passphrase: %v", err)
+func TestPassphrase(t *testing.T) {
+	cases := map[string]*Passphrase{
+		"No list":        {Length: 14, Separator: "/", Include: []string{}, Exclude: []string{}, List: NoList},
+		"Word list":      {Length: 4, Separator: "", Include: []string{"apple"}, Exclude: []string{"banána"}, List: WordList},
+		"Syllable list":  {Length: 6, Separator: "==", Include: []string{"test"}, Exclude: []string{}, List: SyllableList},
+		"Default values": {Length: 10, Include: []string{"background"}, Exclude: []string{"unit"}},
 	}
 
-	t.Log(passphrase)
-}
-
-func TestGeneratePassphrase(t *testing.T) {
-	t.Run("No list", TestGeneratePassphrase_NoList)
-	t.Run("Word list", TestGeneratePassphrase_WordList)
-	t.Run("Syllable list", TestGeneratePassphrase_SyllableList)
-}
-
-var passphrases = []*atoll.Passphrase{
-	{Length: 14, Separator: "/", Include: []string{}, Exclude: []string{}},
-	{Length: 4, Separator: "", Include: []string{"apple"}, Exclude: []string{"banana"}},
-	{Length: 6, Separator: "==", Include: []string{"test"}, Exclude: []string{}},
-	{Length: 10, Separator: " ", Include: []string{"background"}, Exclude: []string{}},
-}
-
-func TestGeneratePassphrase_NoList(t *testing.T) {
-	for _, p := range passphrases {
-		p.List = atoll.NoList
-		if err := p.Generate(); err != nil {
-			t.Errorf("Failed generating the passphrase: %v", err)
+	for k, tc := range cases {
+		passphrase, err := NewSecret(tc)
+		if err != nil {
+			t.Errorf("%s: NewSecret() failed: %v", k, err)
 		}
 
-		// min word length: 3 - max word length: 12
-		phraseLength := int(p.Length) + len(p.Separator)
-		min := 3 * phraseLength
-		max := 12 * phraseLength
-
-		if len(p.Secret) < min || len(p.Secret) > max {
-			t.Errorf("Wrong passphrase length, expected it between %d and %d, got: %d", min, max, len(p.Secret))
+		words := strings.Split(passphrase, tc.Separator)
+		if len(words) != int(tc.Length) {
+			t.Errorf("%s: Expected %d words, got %d", k, tc.Length, len(words))
 		}
 
-		if !strings.ContainsAny(p.Secret, p.Separator) {
-			t.Errorf("Passphrase does not include the separator (%s) as expected", p.Separator)
-		}
-	}
-}
-
-func TestGeneratePassphrase_WordList(t *testing.T) {
-	for _, p := range passphrases {
-		p.List = atoll.WordList
-		if err := p.Generate(); err != nil {
-			t.Errorf("Failed generating the passphrase: %v", err)
+		if !strings.Contains(passphrase, tc.Separator) {
+			t.Errorf("%s: The separator %q is not used", k, tc.Separator)
 		}
 
-		if !strings.ContainsAny(p.Secret, p.Separator) {
-			t.Errorf("Passphrase does not include the separator (%s) as expected", p.Separator)
-		}
-	}
-}
-
-func TestGeneratePassphrase_SyllableList(t *testing.T) {
-	for _, p := range passphrases {
-		p.List = atoll.SyllableList
-		if err := p.Generate(); err != nil {
-			t.Errorf("Failed generating the passphrase: %v", err)
-		}
-
-		if !strings.ContainsAny(p.Secret, p.Separator) {
-			t.Errorf("Passphrase does not include the separator (%s) as expected", p.Separator)
-		}
-	}
-}
-
-func TestIncludeWords(t *testing.T) {
-	for _, p := range passphrases {
-		p.List = atoll.WordList
-		if err := p.Generate(); err != nil {
-			t.Errorf("Failed generating the passphrase: %v", err)
-		}
-
-		for _, incl := range p.Include {
-			if !strings.Contains(p.Secret, incl) {
-				t.Error("Passphrase does not contain an included word")
+		for _, inc := range tc.Include {
+			if !strings.Contains(passphrase, inc) {
+				t.Errorf("%s: Expected %q to be included", k, inc)
 			}
 		}
+
+		for _, exc := range tc.Exclude {
+			if strings.Contains(passphrase, exc) {
+				t.Errorf("%s: Expected %q not to be included", k, exc)
+			}
+		}
+	}
+}
+
+func TestInvalidPassphrase(t *testing.T) {
+	cases := map[string]*Passphrase{
+		"invalid length":               {Length: 0},
+		"len(Include) > Length":        {Length: 2, Include: []string{"must", "throw", "error"}},
+		"included words also excluded": {Length: 2, Include: []string{"Go"}, Exclude: []string{"Go"}},
+	}
+
+	for k, tc := range cases {
+		_, err := NewSecret(tc)
+		if err == nil {
+			t.Errorf("Expected %q error, got nil", k)
+		}
+	}
+}
+
+func TestNewPassphrase(t *testing.T) {
+	length := 5
+	passphrase, err := NewPassphrase(uint64(length), NoList)
+	if err != nil {
+		t.Errorf("NewPassphrase() failed: %v", err)
+	}
+
+	words := strings.Split(passphrase, " ")
+	got := len(words)
+
+	if got != length {
+		t.Errorf("Expected %d words, got %d", length, got)
+	}
+}
+
+func TestInvalidNewPassphrase(t *testing.T) {
+	_, err := NewPassphrase(0, WordList)
+	if err == nil {
+		t.Error("Expected \"invalid length\" error, got nil")
 	}
 }
 
 func TestExcludeWords(t *testing.T) {
-	for _, p := range passphrases {
-		p.List = atoll.WordList
-		if err := p.Generate(); err != nil {
-			t.Errorf("Failed generating the passphrase: %v", err)
-		}
+	cases := map[string]*Passphrase{
+		"No list":       {secret: "cow horse bee", Separator: " ", Exclude: []string{"cow", "horse", "beer"}, List: NoList},
+		"Word list":     {secret: "about abysmal accurate", Separator: " ", Exclude: []string{"about"}, List: WordList},
+		"Syllable list": {secret: "alt bet bang flux", Separator: " ", Exclude: []string{"alt", "flux"}, List: SyllableList},
+	}
 
-		for _, excl := range p.Exclude {
-			if strings.Contains(p.Secret, excl) {
-				t.Errorf("atoll: word %s was not removed from the passphrase", excl)
+	for k, tc := range cases {
+		tc.excludeWords(tc.List)
+
+		for _, exc := range tc.Exclude {
+			if strings.Contains(tc.secret, exc) {
+				t.Errorf("%s: found undesired word %q", k, exc)
 			}
+		}
+	}
+}
+
+func TestGetFuncName(t *testing.T) {
+	cases := []struct {
+		List     func(*Passphrase)
+		Expected string
+	}{
+		{List: NoList, Expected: "NoList"},
+		{List: WordList, Expected: "WordList"},
+		{List: SyllableList, Expected: "SyllableList"},
+	}
+
+	for _, tc := range cases {
+		got := getFuncName(tc.List)
+
+		if got != tc.Expected {
+			t.Errorf("Expected %q, got %q", tc.Expected, got)
 		}
 	}
 }

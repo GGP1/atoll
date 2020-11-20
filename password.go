@@ -2,22 +2,23 @@ package atoll
 
 import (
 	"errors"
-	"fmt"
 	"regexp"
 	"strings"
 )
 
 const (
-	lowerCase = "abcdefghijklmnopqrstuvwxyz"         // Level 1
-	upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"         // Level 2
-	digit     = "0123456789"                         // Level 3
-	space     = " "                                  // Level 4
-	special   = "&$%@#|/\\=\"*~^`'.?!,;:-+_(){}[]<>" // Level 5
+	lowerCase    = "abcdefghijklmnopqrstuvwxyz"         // Level 1
+	upperCase    = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"         // Level 2
+	digit        = "0123456789"                         // Level 3
+	space        = " "                                  // Level 4
+	special      = "&$%@#|/\\=\"*~^`'.?!,;:-+_(){}[]<>" // Level 5
+	extendedUTF8 = `¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄ
+	ÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷
+	øùúûüýþÿ`  // Level 6
 )
 
 // Password represents a sequence of characters required for access to a computer system.
 type Password struct {
-	Secret string
 	Length uint64
 
 	// Each format element is a level that determines the
@@ -26,7 +27,7 @@ type Password struct {
 	//
 	// Levels: 1. lowercase, 2. uppercase, 3. digit,
 	// 4. space, 5. special.
-	Format []int
+	Format []uint8
 
 	// Characters that will be part of the password.
 	Include string
@@ -36,57 +37,44 @@ type Password struct {
 
 	// Character repetition.
 	Repeat bool
-
-	// Entropy tells how hard it will be to guess the passphrase itself even
-	// if an attacker knows the method you used to select your passphrase.
-	//
-	// It's measured in bits: log2(poolLength^secretLength).
-	Entropy float64
 }
 
 // NewPassword returns a random password.
-func NewPassword(length uint64, format []int) (string, error) {
+func NewPassword(length uint64, format []uint8) (string, error) {
 	p := &Password{
 		Length: length,
 		Format: format,
 	}
 
-	if err := p.Generate(); err != nil {
+	password, err := p.Generate()
+	if err != nil {
 		return "", err
 	}
 
-	return p.Secret, nil
+	return password, nil
 }
 
 // Generate generates a random password.
-func (p *Password) Generate() error {
+func (p *Password) Generate() (string, error) {
 	if p.Length < 1 {
-		return errors.New("atoll: invalid password length")
+		return "", errors.New("atoll: invalid password length")
 	}
 
 	if strings.ContainsAny(p.Include, p.Exclude) {
-		return errors.New("atoll: included characters cannot be excluded")
+		return "", errors.New("atoll: included characters cannot be excluded")
 	}
 
-	// Normalize user input
-	p.Include = normalize(p.Include)
-	invalid, _ := regexp.MatchString(`[[:^graph:]]`, p.Include)
-	if invalid {
-		return errors.New("atoll: include contains invalid characters")
-	}
-
-	if len(p.Include) > int(p.Length) {
-		return errors.New("atoll: characters to include exceed the password length")
+	if len([]rune(p.Include)) > int(p.Length) {
+		return "", errors.New("atoll: characters to include exceed the password length")
 	}
 
 	pool, err := p.generatePool()
 	if err != nil {
-		return err
+		return "", err
 	}
-	poolLength := len(pool) + len(p.Include)
 
-	if !p.Repeat && int(p.Length) > (poolLength) {
-		return errors.New("atoll: password length is higher than the pool and repetition is turned off")
+	if !p.Repeat && int(p.Length) > len(pool)+len([]rune(p.Include)) {
+		return "", errors.New("atoll: password length is higher than the pool and repetition is turned off")
 	}
 
 	password := make([]rune, p.Length)
@@ -101,48 +89,18 @@ func (p *Password) Generate() error {
 	}
 
 	password = p.includeChars(password)
-	sanitized, err := p.sanitize(password, pool)
-	if err != nil {
-		return fmt.Errorf("atoll: %v", err)
-	}
+	verified := p.verify(password, pool)
 
-	p.Secret = sanitized
-	p.Entropy = calculateEntropy(poolLength, len(p.Secret))
-
-	return nil
-}
-
-// sanitize clears common patternsand removes leading and trailing spaces.
-func (p *Password) sanitize(password, pool []rune) (string, error) {
-	// If found common patterns, shuffle password
-	weak := regexp.MustCompile(commonPatterns).MatchString(string(password))
-	if weak {
-		if err := shuffle(len(password), func(i, j int) { password[i], password[j] = password[j], password[i] }); err != nil {
-			return "", err
-		}
-		return p.sanitize(password, pool)
-	}
-
-	pwd := strings.TrimSpace(string(password))
-	// If it spaces were removed generate new characters and add
-	// them to the pwd to meet the length required
-	if len(pwd) < int(p.Length) {
-		diff := int(p.Length) - len(pwd)
-		for i := 0; i < diff; i++ {
-			pwd += string(pool[randInt(len(pool))])
-		}
-	}
-
-	return pwd, nil
+	return verified, nil
 }
 
 // generatePool takes the format specified by the user and creates the pool to generate a random password.
 func (p *Password) generatePool() ([]rune, error) {
 	if len(p.Format) == 0 {
-		p.Format = []int{1, 2, 3, 4, 5}
+		p.Format = []uint8{1, 2, 3, 4, 5}
 	}
 
-	levels := make(map[int]struct{}, len(p.Format))
+	levels := make(map[uint8]struct{}, len(p.Format))
 
 	for _, v := range p.Format {
 		levels[v] = struct{}{}
@@ -151,8 +109,8 @@ func (p *Password) generatePool() ([]rune, error) {
 	chars := make([]string, len(levels))
 
 	for key := range levels {
-		if key > 5 {
-			return nil, errors.New("atoll: password level must be equal to or lower than 5")
+		if key < 1 || key > 6 {
+			return nil, errors.New("atoll: format level must be between 1 and 5")
 		}
 
 		switch key {
@@ -166,6 +124,8 @@ func (p *Password) generatePool() ([]rune, error) {
 			chars = append(chars, space)
 		case 5:
 			chars = append(chars, special)
+		case 6:
+			chars = append(chars, extendedUTF8)
 		}
 	}
 
@@ -173,22 +133,23 @@ func (p *Password) generatePool() ([]rune, error) {
 
 	// Remove excluded characters from the pool
 	if p.Exclude != "" {
-		split := strings.Split(p.Exclude, "")
-		for _, s := range split {
-			pool = strings.Replace(pool, s, "", -1)
+		exclChars := strings.Split(p.Exclude, "")
+		for _, c := range exclChars {
+			pool = strings.Replace(pool, c, "", -1)
 		}
 	}
 
 	return []rune(pool), nil
 }
 
-// includeChars returns an array with the positions that include characters will occupy in the password.
+// includeChars choses randomly len(Include) indices and replaces the password
+// characters in the matching indices with characters inside Include.
 //
 // This way we are replacing characters instead of reserving indices for them to keep
 // the algorithm as simple as possible.
 func (p *Password) includeChars(password []rune) []rune {
 	chars := []rune(p.Include)
-	indices := make([]int, len(p.Include))
+	indices := make([]int, len(chars))
 
 	// Create an array with password indices
 	pwdIndices := make([]int, p.Length)
@@ -197,7 +158,6 @@ func (p *Password) includeChars(password []rune) []rune {
 	}
 
 	// Select an index from the password for each character of "include"
-	// pwdIndices[n] -> put an inclChar at this index
 	for i := range indices {
 		n := randInt(len(pwdIndices))
 		idx := pwdIndices[n]
@@ -210,7 +170,7 @@ func (p *Password) includeChars(password []rune) []rune {
 
 	for i := range password {
 		// Compare i and random numbers, if they are equal, a random char from "chars"
-		// will be appended to the password until "chars" is empty
+		// will be appended to the password until it's empty
 		for _, index := range indices {
 			if i == index {
 				n := randInt(len(chars))
@@ -222,4 +182,26 @@ func (p *Password) includeChars(password []rune) []rune {
 	}
 
 	return password
+}
+
+// verify clears common patterns and removes leading and trailing spaces.
+func (p *Password) verify(password, pool []rune) string {
+	// If found common patterns, shuffle password. Repeat until it's strong enough
+	weak := regexp.MustCompile(commonPatterns).MatchString(string(password))
+	if weak {
+		shuffle(password)
+		return p.verify(password, pool)
+	}
+
+	pwd := strings.TrimSpace(string(password))
+	// If it spaces were removed generate new characters and add
+	// them to the pwd to meet the length required
+	if len([]rune(pwd)) < int(p.Length) {
+		diff := int(p.Length) - len(pwd)
+		for i := 0; i < diff; i++ {
+			pwd += string(pool[randInt(len(pool))])
+		}
+	}
+
+	return pwd
 }
