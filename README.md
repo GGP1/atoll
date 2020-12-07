@@ -92,7 +92,7 @@ func main() {
 3. Digits (1, 2, 3...)
 4. Space
 5. Special (!, $, %...)
-6. UTF-8 (¡, ¢, £, ¤, ¥)
+6. Extended UTF-8 (¡, ¢, £, ¤, ¥...)
 
 ### Passphrases options
 
@@ -159,12 +159,12 @@ GOARCH: amd64
 GOMAXPROCS: 6
 
 ```
-BenchmarkPassword                  	   41810	     28056 ns/op	   19120 B/op	     174 allocs/op
-BenchmarkNewPassword               	   50419	     23701 ns/op	   16226 B/op	     125 allocs/op
-BenchmarkNewPassphrase             	   33613	     35760 ns/op	    7839 B/op	     406 allocs/op
-BenchmarkPassphrase_NoList         	   33240	     36011 ns/op	    7889 B/op	     406 allocs/op
-BenchmarkPassphrase_WordList       	  363319	      3322 ns/op	     624 B/op	      28 allocs/op
-BenchmarkPassphrase_SyllableList   	  414232	      2996 ns/op	     592 B/op	      28 allocs/op
+BenchmarkPassword                  	   44286	     27166 ns/op	   18725 B/op	     157 allocs/op
+BenchmarkNewPassword               	   50005	     23908 ns/op	   16091 B/op	     124 allocs/op
+BenchmarkNewPassphrase             	   33240	     36071 ns/op	    7825 B/op	     405 allocs/op
+BenchmarkPassphrase_NoList         	   32966	     36492 ns/op	    7832 B/op	     406 allocs/op
+BenchmarkPassphrase_WordList       	  374997	      3229 ns/op	     576 B/op	      27 allocs/op
+BenchmarkPassphrase_SyllableList   	  400014	      2925 ns/op	     560 B/op	      27 allocs/op
 ```
 
 Take a look at them [here](/benchmark_test.go).

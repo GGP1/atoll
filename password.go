@@ -26,7 +26,7 @@ type Password struct {
 	// the password pool.
 	//
 	// Levels: 1. lowercase, 2. uppercase, 3. digit,
-	// 4. space, 5. special.
+	// 4. space, 5. special, 6. extended UTF8.
 	Format []uint8
 
 	// Characters that will be part of the password.
@@ -64,7 +64,9 @@ func (p *Password) Generate() (string, error) {
 		return "", errors.New("atoll: included characters cannot be excluded")
 	}
 
-	if len([]rune(p.Include)) > int(p.Length) {
+	inclRunes := []rune(p.Include)
+
+	if len(inclRunes) > int(p.Length) {
 		return "", errors.New("atoll: characters to include exceed the password length")
 	}
 
@@ -73,7 +75,7 @@ func (p *Password) Generate() (string, error) {
 		return "", err
 	}
 
-	if !p.Repeat && int(p.Length) > len(pool)+len([]rune(p.Include)) {
+	if !p.Repeat && int(p.Length) > len(pool)+len(inclRunes) {
 		return "", errors.New("atoll: password length is higher than the pool and repetition is turned off")
 	}
 
@@ -84,11 +86,13 @@ func (p *Password) Generate() (string, error) {
 		password[i] = pool[char]
 
 		if !p.Repeat {
-			removeElem(&pool, char)
+			// Remove element used
+			pool = append(pool[:char], pool[char+1:]...)
 		}
 	}
 
-	password = p.includeChars(password)
+	password = p.includeChars(password, inclRunes)
+
 	verified := p.verify(password, pool)
 
 	return verified, nil
@@ -110,7 +114,7 @@ func (p *Password) generatePool() ([]rune, error) {
 
 	for key := range levels {
 		if key < 1 || key > 6 {
-			return nil, errors.New("atoll: format level must be between 1 and 5")
+			return nil, errors.New("atoll: format level must be between 1 and 6")
 		}
 
 		switch key {
@@ -142,43 +146,24 @@ func (p *Password) generatePool() ([]rune, error) {
 	return []rune(pool), nil
 }
 
-// includeChars choses randomly len(Include) indices and replaces the password
-// characters in the matching indices with characters inside Include.
-//
-// This way we are replacing characters instead of reserving indices for them to keep
-// the algorithm as simple as possible.
-func (p *Password) includeChars(password []rune) []rune {
-	chars := []rune(p.Include)
-	indices := make([]int, len(chars))
+func (p *Password) includeChars(password, inclRunes []rune) []rune {
+	inclIndices := make(map[int]struct{}, len(inclRunes))
 
-	// Create an array with password indices
-	pwdIndices := make([]int, p.Length)
-	for i := range pwdIndices {
-		pwdIndices[i] = i
-	}
-
-	// Select an index from the password for each character of "include"
-	for i := range indices {
-		n := randInt(len(pwdIndices))
-		idx := pwdIndices[n]
-
-		// Remove the selected index from the array to not overwrite them
-		pwdIndices = append(pwdIndices[:n], pwdIndices[n+1:]...)
-
-		indices[i] = idx
-	}
-
-	for i := range password {
-		// Compare i and random numbers, if they are equal, a random char from "chars"
-		// will be appended to the password until it's empty
-		for _, index := range indices {
-			if i == index {
-				n := randInt(len(chars))
-				password[i] = chars[n]
-
-				removeElem(&chars, n)
-			}
+	// Take a unique random index for each rune
+	for range inclRunes {
+	repeat:
+		n := randInt(int(p.Length))
+		if _, ok := inclIndices[n]; !ok {
+			inclIndices[n] = struct{}{}
+			continue
 		}
+		goto repeat
+	}
+
+	// Replace password characters with the included ones in random positions.
+	for idx := range inclIndices {
+		password[idx] = inclRunes[0]
+		inclRunes = inclRunes[1:]
 	}
 
 	return password
@@ -197,7 +182,7 @@ func (p *Password) verify(password, pool []rune) string {
 	// If it spaces were removed generate new characters and add
 	// them to the pwd to meet the length required
 	if len([]rune(pwd)) < int(p.Length) {
-		diff := int(p.Length) - len(pwd)
+		diff := int(p.Length) - len([]rune(pwd))
 		for i := 0; i < diff; i++ {
 			pwd += string(pool[randInt(len(pool))])
 		}

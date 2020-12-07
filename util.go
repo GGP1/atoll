@@ -29,12 +29,6 @@ func randInt(max int) int {
 	return int(randN.Int64())
 }
 
-// removeElem deletes an element from the slicePtr.
-func removeElem(slicePtr *[]rune, elem int) {
-	slice := *slicePtr
-	*slicePtr = append(slice[:elem], slice[elem+1:]...)
-}
-
 // Shuffle randomizes the order of the password elements.
 func shuffle(password []rune) {
 	for i := range password {

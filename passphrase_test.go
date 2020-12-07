@@ -87,11 +87,16 @@ func TestExcludeWords(t *testing.T) {
 	}
 
 	for k, tc := range cases {
-		tc.excludeWords(tc.List)
+		tc.excludeWords()
+
+		words := strings.Split(tc.secret, tc.Separator)
 
 		for _, exc := range tc.Exclude {
-			if strings.Contains(tc.secret, exc) {
-				t.Errorf("%s: found undesired word %q", k, exc)
+			for _, word := range words {
+				if exc == word {
+					t.Errorf("%s: found undesired word %q", k, exc)
+
+				}
 			}
 		}
 	}

@@ -22,7 +22,7 @@ func TestPassword(t *testing.T) {
 		}
 
 		if len([]rune(password)) != int(tc.Length) {
-			t.Errorf("Expected to be %d characters long, got %d", tc.Length, len(password))
+			t.Errorf("Expected to be %d characters long, got %d", tc.Length, len([]rune(password)))
 		}
 
 		for _, f := range tc.Format {
@@ -86,7 +86,8 @@ func TestNewPassword(t *testing.T) {
 	}
 
 	if len([]rune(password)) != length {
-		t.Errorf("Expected length to be %d but got %d", length, len(password))
+		t.Errorf("Expected length to be %d but got %d", length, len([]rune(password)))
+		t.Log(password)
 	}
 
 	if strings.ContainsAny(password, space+special) {
