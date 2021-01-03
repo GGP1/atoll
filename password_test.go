@@ -9,8 +9,8 @@ import (
 
 func TestPassword(t *testing.T) {
 	cases := []*Password{
-		{Length: 14, Format: []uint8{1, 5, 6}, Include: "kure", Exclude: "adé", Repeat: false},
-		{Length: 8, Format: []uint8{1, 4}, Include: "á", Repeat: true},
+		{Length: 14, Format: []uint8{1, 5}, Include: "kure", Exclude: "ad", Repeat: false},
+		{Length: 8, Format: []uint8{1, 4}, Include: "bee", Repeat: true},
 		{Length: 40, Format: []uint8{1, 2, 3}, Include: "231", Repeat: false},
 		{Length: 20},
 	}
@@ -18,16 +18,16 @@ func TestPassword(t *testing.T) {
 	for _, tc := range cases {
 		password, err := NewSecret(tc)
 		if err != nil {
-			t.Errorf("NewSecret() failed: %v", err)
+			t.Fatalf("NewSecret() failed: %v", err)
 		}
 
-		if len([]rune(password)) != int(tc.Length) {
-			t.Errorf("Expected to be %d characters long, got %d", tc.Length, len([]rune(password)))
+		if len(password) != int(tc.Length) {
+			t.Errorf("Expected password to be %d characters long, got %d", tc.Length, len(password))
 		}
 
 		for _, f := range tc.Format {
 			var min uint8 = 1
-			var max uint8 = 6
+			var max uint8 = 5
 			if f < min || f > max {
 				t.Errorf("Invalid format level, minimum is %d and maximum %d, got %d", min, max, f)
 			}
@@ -61,6 +61,7 @@ func TestPassword(t *testing.T) {
 		}
 	}
 }
+
 func TestInvalidPassword(t *testing.T) {
 	cases := map[string]*Password{
 		"invalid length": {Length: 0},
@@ -68,6 +69,7 @@ func TestInvalidPassword(t *testing.T) {
 		"not enough characters to meet the length required": {Length: 30, Format: []uint8{1}, Repeat: false},
 		"include characters also excluded":                  {Length: 7, Include: "?", Exclude: "?"},
 		"include characters exceeds the length":             {Length: 3, Include: "abcd"},
+		"invalid include character":                         {Length: 5, Include: "éÄ"},
 	}
 
 	for k, tc := range cases {
@@ -80,7 +82,7 @@ func TestInvalidPassword(t *testing.T) {
 
 func TestNewPassword(t *testing.T) {
 	length := 15
-	password, err := NewPassword(uint64(length), []uint8{1, 2, 3, 6})
+	password, err := NewPassword(uint64(length), []uint8{1, 2, 3})
 	if err != nil {
 		t.Fatalf("NewPassword() failed: %v", err)
 	}
@@ -121,12 +123,12 @@ func TestGeneratePool(t *testing.T) {
 		"All levels": {
 			Fail:     false,
 			Pool:     lowerCase + upperCase + digit + space + special,
-			Password: &Password{Format: []uint8{1, 2, 3, 4, 5, 6}, Exclude: "aA"},
+			Password: &Password{Format: []uint8{1, 2, 3, 4, 5}, Exclude: "aA"},
 		},
 		"Repeating levels": {
 			Fail:     false,
 			Pool:     lowerCase + upperCase + digit + space + special,
-			Password: &Password{Format: []uint8{1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6}},
+			Password: &Password{Format: []uint8{1, 1, 2, 2, 3, 3, 4, 4, 5, 5}},
 		},
 		"First three levels": {
 			Fail:     true,
@@ -136,7 +138,7 @@ func TestGeneratePool(t *testing.T) {
 		"Invalid levels": {
 			Fail:     true,
 			Pool:     "",
-			Password: &Password{Format: []uint8{0, 4, 7}},
+			Password: &Password{Format: []uint8{0, 4, 6}},
 		},
 		"Default format": {
 			Fail:     false,
@@ -152,7 +154,7 @@ func TestGeneratePool(t *testing.T) {
 		}
 
 		for _, e := range tc.Password.Exclude {
-			tc.Pool = strings.Replace(tc.Pool, string(e), "", -1)
+			tc.Pool = strings.ReplaceAll(tc.Pool, string(e), "")
 		}
 
 		if !strings.ContainsAny(string(pool), tc.Pool) && tc.Pool != "" {
@@ -166,18 +168,15 @@ func TestGeneratePool(t *testing.T) {
 }
 
 func TestVerify(t *testing.T) {
-	cases := [][]rune{
-		[]rune(" trimSpacesX "),
-		[]rune("admin123login"),
-	}
+	cases := []string{" trimSpacesX ", "admin123login"}
 
 	p := &Password{Length: 13}
-	pool := []rune(lowerCase + upperCase + digit)
+	pool := lowerCase + upperCase + digit
 
 	for _, tc := range cases {
 		got := p.verify(tc, pool)
 
-		if regexp.MustCompile(commonPatterns).MatchString(string(tc)) {
+		if regexp.MustCompile(commonPatterns).MatchString(got) {
 			t.Errorf("%q still contains common patterns", got)
 		}
 

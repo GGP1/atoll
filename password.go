@@ -2,19 +2,17 @@ package atoll
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 )
 
 const (
-	lowerCase    = "abcdefghijklmnopqrstuvwxyz"         // Level 1
-	upperCase    = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"         // Level 2
-	digit        = "0123456789"                         // Level 3
-	space        = " "                                  // Level 4
-	special      = "&$%@#|/\\=\"*~^`'.?!,;:-+_(){}[]<>" // Level 5
-	extendedUTF8 = `¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄ
-	ÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷
-	øùúûüýþÿ`  // Level 6
+	lowerCase = "abcdefghijklmnopqrstuvwxyz"         // Level 1
+	upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"         // Level 2
+	digit     = "0123456789"                         // Level 3
+	space     = " "                                  // Level 4
+	special   = "&$%@#|/\\=\"*~^`'.?!,;:-+_(){}[]<>" // Level 5
 )
 
 // Password represents a sequence of characters required for access to a computer system.
@@ -60,13 +58,18 @@ func (p *Password) Generate() (string, error) {
 		return "", errors.New("atoll: invalid password length")
 	}
 
+	// Check if include contains 2/3 bytes characters
+	for _, incl := range p.Include {
+		if len(string(incl)) != 1 {
+			return "", fmt.Errorf("atoll: include contains invalid characters (%v)", incl)
+		}
+	}
+
 	if strings.ContainsAny(p.Include, p.Exclude) {
 		return "", errors.New("atoll: included characters cannot be excluded")
 	}
 
-	inclRunes := []rune(p.Include)
-
-	if len(inclRunes) > int(p.Length) {
+	if len(p.Include) > int(p.Length) {
 		return "", errors.New("atoll: characters to include exceed the password length")
 	}
 
@@ -75,62 +78,67 @@ func (p *Password) Generate() (string, error) {
 		return "", err
 	}
 
-	if !p.Repeat && int(p.Length) > len(pool)+len(inclRunes) {
+	if !p.Repeat && int(p.Length) > len(pool)+len(p.Include) {
 		return "", errors.New("atoll: password length is higher than the pool and repetition is turned off")
 	}
 
-	password := make([]rune, p.Length)
+	var password string
+	passwordLen := int(p.Length) - len(p.Include)
 
-	for i := range password {
-		char := randInt(len(pool))
-		password[i] = pool[char]
+	for i := 0; i < passwordLen; i++ {
+		char := string(pool[randInt(len(pool))])
+		password = randInsert(password, char)
 
 		if !p.Repeat {
 			// Remove element used
-			pool = append(pool[:char], pool[char+1:]...)
+			pool = strings.Replace(pool, char, "", 1)
 		}
 	}
 
-	password = p.includeChars(password, inclRunes)
+	// Add included characters in random positions
+	inclRunes := []rune(p.Include)
+	for range inclRunes {
+		password = randInsert(password, string(inclRunes[0]))
+		inclRunes = inclRunes[1:]
+	}
 
-	verified := p.verify(password, pool)
+	password = p.verify(password, pool)
 
-	return verified, nil
+	return password, nil
 }
 
 // generatePool takes the format specified by the user and creates the pool to generate a random password.
-func (p *Password) generatePool() ([]rune, error) {
+func (p *Password) generatePool() (string, error) {
 	if len(p.Format) == 0 {
 		p.Format = []uint8{1, 2, 3, 4, 5}
 	}
 
-	levels := make(map[uint8]struct{}, len(p.Format))
-
-	for _, v := range p.Format {
-		levels[v] = struct{}{}
+	levels := make(map[uint8]struct{})
+	for _, l := range p.Format {
+		if l < 1 || l > 5 {
+			return "", errors.New("atoll: format level must be between 1 and 5")
+		}
+		levels[l] = struct{}{}
 	}
 
+	var i uint8
 	chars := make([]string, len(levels))
 
-	for key := range levels {
-		if key < 1 || key > 6 {
-			return nil, errors.New("atoll: format level must be between 1 and 6")
+	for level := range levels {
+		switch level {
+		case 1:
+			chars[i] = lowerCase
+		case 2:
+			chars[i] = upperCase
+		case 3:
+			chars[i] = digit
+		case 4:
+			chars[i] = space
+		case 5:
+			chars[i] = special
 		}
 
-		switch key {
-		case 1:
-			chars = append(chars, lowerCase)
-		case 2:
-			chars = append(chars, upperCase)
-		case 3:
-			chars = append(chars, digit)
-		case 4:
-			chars = append(chars, space)
-		case 5:
-			chars = append(chars, special)
-		case 6:
-			chars = append(chars, extendedUTF8)
-		}
+		i++
 	}
 
 	pool := strings.Join(chars, "")
@@ -139,54 +147,33 @@ func (p *Password) generatePool() ([]rune, error) {
 	if p.Exclude != "" {
 		exclChars := strings.Split(p.Exclude, "")
 		for _, c := range exclChars {
-			pool = strings.Replace(pool, c, "", -1)
+			pool = strings.ReplaceAll(pool, c, "")
 		}
 	}
 
-	return []rune(pool), nil
-}
-
-func (p *Password) includeChars(password, inclRunes []rune) []rune {
-	inclIndices := make(map[int]struct{}, len(inclRunes))
-
-	// Take a unique random index for each rune
-	for range inclRunes {
-	repeat:
-		n := randInt(int(p.Length))
-		if _, ok := inclIndices[n]; !ok {
-			inclIndices[n] = struct{}{}
-			continue
-		}
-		goto repeat
-	}
-
-	// Replace password characters with the included ones in random positions.
-	for idx := range inclIndices {
-		password[idx] = inclRunes[0]
-		inclRunes = inclRunes[1:]
-	}
-
-	return password
+	return pool, nil
 }
 
 // verify clears common patterns and removes leading and trailing spaces.
-func (p *Password) verify(password, pool []rune) string {
-	// If found common patterns, shuffle password. Repeat until it's strong enough
-	weak := regexp.MustCompile(commonPatterns).MatchString(string(password))
-	if weak {
-		shuffle(password)
-		return p.verify(password, pool)
-	}
+func (p *Password) verify(password, pool string) string {
+	password = strings.TrimSpace(password)
+	// If there were spaces removed, generate new characters and add
+	// them to the password to meet the length required
+	if len([]rune(password)) < int(p.Length) {
+		diff := int(p.Length) - len([]rune(password))
 
-	pwd := strings.TrimSpace(string(password))
-	// If it spaces were removed generate new characters and add
-	// them to the pwd to meet the length required
-	if len([]rune(pwd)) < int(p.Length) {
-		diff := int(p.Length) - len([]rune(pwd))
 		for i := 0; i < diff; i++ {
-			pwd += string(pool[randInt(len(pool))])
+			// Add remaining characters in random positions
+			password = randInsert(password, string(pool[randInt(len(pool))]))
 		}
 	}
 
-	return pwd
+	// If found common patterns, shuffle password. Repeat until it's strong enough
+repeat:
+	if regexp.MustCompile(commonPatterns).MatchString(password) {
+		password = shuffle([]rune(password))
+		goto repeat
+	}
+
+	return password
 }

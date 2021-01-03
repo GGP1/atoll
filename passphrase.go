@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 )
 
 var (
@@ -60,22 +59,29 @@ func (p *Passphrase) Generate() (string, error) {
 		return "", errors.New("atoll: number of words to include exceed the password length")
 	}
 
+	for _, incl := range p.Include {
+		// Look for words contaning 2/3 bytes characters
+		if len(incl) != len([]rune(incl)) {
+			return "", fmt.Errorf("atoll: included word %q contains invalid characters", incl)
+		}
+
+		// Check for equality between included and excluded words
+		for _, excl := range p.Exclude {
+			if incl == excl {
+				return "", fmt.Errorf("word %q cannot be included and excluded", excl)
+			}
+		}
+	}
+
+	// Defaults
 	if p.Separator == "" {
 		p.Separator = " "
 	}
-
 	if p.List == nil {
 		p.List = NoList
 	}
 
-	incl := strings.Join(p.Include, p.Separator)
-	for _, excl := range p.Exclude {
-		if incl == excl {
-			return "", fmt.Errorf("word %q cannot be included and excluded", excl)
-		}
-	}
-
-	// Generate the secret with the list specified
+	// Generate the passphrase with the list specified
 	p.List(p)
 	// Include and exclude words
 	if len(p.Include) != 0 {
@@ -88,25 +94,12 @@ func (p *Passphrase) Generate() (string, error) {
 	return p.secret, nil
 }
 
-// Determine include indices and replace the existing word with an included one.
+// includeWords randomly inserts included words in the passphrase, replacing already existing words.
 func (p *Passphrase) includeWords() {
-	indices := make(map[int]struct{}, len(p.Include))
-
-	// Take a unique random index for each word
-	for range p.Include {
-	repeat:
-		n := randInt(int(p.Length))
-		if _, ok := indices[n]; !ok {
-			indices[n] = struct{}{}
-			continue
-		}
-		goto repeat
-	}
-
 	words := strings.Split(p.secret, p.Separator)
 
-	for i := range indices {
-		words[i] = p.Include[0]
+	for range p.Include {
+		words[randInt(len(words))] = p.Include[0]
 		p.Include = p.Include[1:]
 	}
 
@@ -141,30 +134,24 @@ func (p *Passphrase) excludeWords() {
 
 // NoList generates a random passphrase without using a list, making the potential attacker work harder.
 func NoList(p *Passphrase) {
-	var wg sync.WaitGroup
 	passphrase := make([]string, p.Length)
 
-	wg.Add(len(passphrase))
 	for i := range passphrase {
-		go func(i int, passphrase []string) {
-			defer wg.Done()
-			passphrase[i] = generateRandomWord()
-		}(i, passphrase)
+		passphrase[i] = generateRandomWord()
 	}
-	wg.Wait()
 
 	p.secret = strings.Join(passphrase, p.Separator)
 }
 
 // WordList generates a passphrase using a wordlist (18,325 long).
 func WordList(p *Passphrase) {
-	words := make([]string, p.Length)
+	passphrase := make([]string, p.Length)
 
-	for i := range words {
-		words[i] = atollWords[randInt(len(atollWords))]
+	for i := range passphrase {
+		passphrase[i] = atollWords[randInt(len(atollWords))]
 	}
 
-	p.secret = strings.Join(words, p.Separator)
+	p.secret = strings.Join(passphrase, p.Separator)
 }
 
 // SyllableList generates a passphrase using a syllable list (10,129 long).
@@ -178,20 +165,21 @@ func SyllableList(p *Passphrase) {
 	p.secret = strings.Join(passphrase, p.Separator)
 }
 
-// generateRandomWord returns a word without using any list or dictionary.
+// generateRandomWord returns a random sword without using any list or dictionary.
 func generateRandomWord() string {
 	// Words length are randomly selected between 3 and 12 letters.
 	wordLength := randInt(10) + 3
 	syllables := make([]string, wordLength)
 
-	for j := 0; j < wordLength; j++ {
+	for i := 0; i < wordLength; i++ {
+		idx := randInt(len(syllables))
 		// Select a number from 0 to 10, 0-3 is a vowel, else a consonant
 		if randInt(11) <= 3 {
-			syllables = append(syllables, vowels[randInt(len(vowels))])
+			syllables[idx] = vowels[randInt(len(vowels))]
 			continue
 		}
 
-		syllables = append(syllables, constants[randInt(len(constants))])
+		syllables[idx] = constants[randInt(len(constants))]
 	}
 
 	return strings.Join(syllables, "")

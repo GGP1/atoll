@@ -6,9 +6,9 @@ import (
 
 var password = &Password{
 	Length:  15,
-	Format:  []uint8{1, 2, 3, 4, 5, 6},
-	Include: "bénch",
-	Exclude: "mÄrk",
+	Format:  []uint8{1, 2, 3, 4, 5},
+	Include: "bench",
+	Exclude: "mark",
 	Repeat:  true,
 }
 
@@ -23,7 +23,7 @@ func BenchmarkPassword(b *testing.B) {
 
 func BenchmarkNewPassword(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_, err := NewPassword(15, []uint8{1, 2, 3, 4, 5, 6})
+		_, err := NewPassword(15, []uint8{1, 2, 3, 4, 5})
 		if err != nil {
 			b.Error("Failed generating password")
 		}
@@ -33,8 +33,8 @@ func BenchmarkNewPassword(b *testing.B) {
 var passphrase = &Passphrase{
 	Length:    6,
 	Separator: "-",
-	Include:   []string{"enjóy"},
-	Exclude:   []string{"play¡"},
+	Include:   []string{"enjoy"},
+	Exclude:   []string{"play"},
 }
 
 func BenchmarkNewPassphrase(b *testing.B) {

@@ -10,9 +10,9 @@ import (
 func ExamplePassword() {
 	p := &atoll.Password{
 		Length:  22,
-		Format:  []uint8{1, 2, 3, 4, 5, 6},
-		Include: "1+=Á",
-		Exclude: "&r/Ë",
+		Format:  []uint8{1, 2, 3, 4, 5},
+		Include: "1+=g",
+		Exclude: "&r/ty",
 		Repeat:  false,
 	}
 
@@ -23,7 +23,7 @@ func ExamplePassword() {
 
 	fmt.Println(password)
 	// Example output:
-	// H1k+6R0tMU3=aFlh2DCy5O
+	// AE8f@,1^P_Ws=c!ho`T{Á+
 }
 
 func ExampleNewPassword() {
@@ -36,6 +36,7 @@ func ExampleNewPassword() {
 	// Example output:
 	// ?{{5Rt%r3OrE}7?z
 }
+
 func ExamplePassphrase() {
 	p := &atoll.Passphrase{
 		Length:    8,

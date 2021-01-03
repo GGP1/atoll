@@ -8,37 +8,41 @@ import (
 func TestPassphrase(t *testing.T) {
 	cases := map[string]*Passphrase{
 		"No list":        {Length: 14, Separator: "/", Include: []string{}, Exclude: []string{}, List: NoList},
-		"Word list":      {Length: 4, Separator: "", Include: []string{"apple"}, Exclude: []string{"banána"}, List: WordList},
+		"Word list":      {Length: 4, Separator: "", Include: []string{"apple", "orange", "watermelon"}, Exclude: []string{}, List: WordList},
 		"Syllable list":  {Length: 6, Separator: "==", Include: []string{"test"}, Exclude: []string{}, List: SyllableList},
 		"Default values": {Length: 10, Include: []string{"background"}, Exclude: []string{"unit"}},
 	}
 
 	for k, tc := range cases {
-		passphrase, err := NewSecret(tc)
-		if err != nil {
-			t.Errorf("%s: NewSecret() failed: %v", k, err)
-		}
-
-		words := strings.Split(passphrase, tc.Separator)
-		if len(words) != int(tc.Length) {
-			t.Errorf("%s: Expected %d words, got %d", k, tc.Length, len(words))
-		}
-
-		if !strings.Contains(passphrase, tc.Separator) {
-			t.Errorf("%s: The separator %q is not used", k, tc.Separator)
-		}
-
-		for _, inc := range tc.Include {
-			if !strings.Contains(passphrase, inc) {
-				t.Errorf("%s: Expected %q to be included", k, inc)
+		t.Run(k, func(t *testing.T) {
+			passphrase, err := NewSecret(tc)
+			if err != nil {
+				t.Fatalf("NewSecret() failed: %v", err)
 			}
-		}
 
-		for _, exc := range tc.Exclude {
-			if strings.Contains(passphrase, exc) {
-				t.Errorf("%s: Expected %q not to be included", k, exc)
+			words := strings.Split(passphrase, tc.Separator)
+			if len(words) != int(tc.Length) {
+				t.Errorf("Expected %d words, got %d", tc.Length, len(words))
 			}
-		}
+
+			if !strings.Contains(passphrase, tc.Separator) {
+				t.Errorf("The separator %q is not used", tc.Separator)
+			}
+
+			for _, inc := range tc.Include {
+				if !strings.Contains(passphrase, inc) {
+					t.Errorf("Expected %q to be included", inc)
+				}
+			}
+
+			for _, w := range words {
+				for _, exc := range tc.Exclude {
+					if exc == w {
+						t.Errorf("Expected %q to be excluded", exc)
+					}
+				}
+			}
+		})
 	}
 }
 
@@ -47,11 +51,11 @@ func TestInvalidPassphrase(t *testing.T) {
 		"invalid length":               {Length: 0},
 		"len(Include) > Length":        {Length: 2, Include: []string{"must", "throw", "error"}},
 		"included words also excluded": {Length: 2, Include: []string{"Go"}, Exclude: []string{"Go"}},
+		"invalid included word":        {Length: 7, Include: []string{"ínvalid"}},
 	}
 
 	for k, tc := range cases {
-		_, err := NewSecret(tc)
-		if err == nil {
+		if _, err := NewSecret(tc); err == nil {
 			t.Errorf("Expected %q error, got nil", k)
 		}
 	}
@@ -87,18 +91,19 @@ func TestExcludeWords(t *testing.T) {
 	}
 
 	for k, tc := range cases {
-		tc.excludeWords()
+		t.Run(k, func(t *testing.T) {
+			tc.excludeWords()
 
-		words := strings.Split(tc.secret, tc.Separator)
+			words := strings.Split(tc.secret, tc.Separator)
 
-		for _, exc := range tc.Exclude {
-			for _, word := range words {
-				if exc == word {
-					t.Errorf("%s: found undesired word %q", k, exc)
-
+			for _, exc := range tc.Exclude {
+				for _, word := range words {
+					if exc == word {
+						t.Errorf("Found undesired word %q", exc)
+					}
 				}
 			}
-		}
+		})
 	}
 }
 
