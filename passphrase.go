@@ -172,14 +172,13 @@ func generateRandomWord() string {
 	syllables := make([]string, wordLength)
 
 	for i := 0; i < wordLength; i++ {
-		idx := randInt(len(syllables))
 		// Select a number from 0 to 10, 0-3 is a vowel, else a consonant
 		if randInt(11) <= 3 {
-			syllables[idx] = vowels[randInt(len(vowels))]
+			syllables[i] = vowels[randInt(len(vowels))]
 			continue
 		}
 
-		syllables[idx] = constants[randInt(len(constants))]
+		syllables[i] = constants[randInt(len(constants))]
 	}
 
 	return strings.Join(syllables, "")
