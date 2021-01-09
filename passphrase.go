@@ -3,7 +3,9 @@ package atoll
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
+	"sync"
 )
 
 var (
@@ -14,7 +16,7 @@ var (
 
 // Passphrase represents a sequence of words/syllables with a separator between them.
 type Passphrase struct {
-	secret string
+	words []string
 
 	// Number of words in the passphrase.
 	Length uint64
@@ -41,28 +43,37 @@ func NewPassphrase(length uint64, l list) (string, error) {
 		List:   l,
 	}
 
-	passphrase, err := p.Generate()
+	return p.Generate()
+}
+
+// Generate generates a random passphrase.
+func (p *Passphrase) Generate() (string, error) {
+	passphrase, err := p.generate()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("atoll: %v", err)
 	}
 
 	return passphrase, nil
 }
 
-// Generate generates a random passphrase.
-func (p *Passphrase) Generate() (string, error) {
+func (p *Passphrase) generate() (string, error) {
 	if p.Length < 1 {
-		return "", errors.New("atoll: passphrase length must be equal to or higher than 1")
+		return "", errors.New("passphrase length must be equal to or higher than 1")
 	}
 
 	if len(p.Include) > int(p.Length) {
-		return "", errors.New("atoll: number of words to include exceed the password length")
+		return "", errors.New("number of words to include exceed the password length")
+	}
+
+	// Look 2/3 bytes characters
+	if len(p.Separator) != len([]rune(p.Separator)) {
+		return "", fmt.Errorf("separator %q contains invalid characters", p.Separator)
 	}
 
 	for _, incl := range p.Include {
 		// Look for words contaning 2/3 bytes characters
 		if len(incl) != len([]rune(incl)) {
-			return "", fmt.Errorf("atoll: included word %q contains invalid characters", incl)
+			return "", fmt.Errorf("included word %q contains invalid characters", incl)
 		}
 
 		// Check for equality between included and excluded words
@@ -73,6 +84,8 @@ func (p *Passphrase) Generate() (string, error) {
 		}
 	}
 
+	// Initialize secret slice (included words will be appended)
+	p.words = make([]string, int(p.Length)-len(p.Include))
 	// Defaults
 	if p.Separator == "" {
 		p.Separator = " "
@@ -91,40 +104,38 @@ func (p *Passphrase) Generate() (string, error) {
 		p.excludeWords()
 	}
 
-	return p.secret, nil
+	return strings.Join(p.words, p.Separator), nil
 }
 
 // includeWords randomly inserts included words in the passphrase, replacing already existing words.
 func (p *Passphrase) includeWords() {
-	words := strings.Split(p.secret, p.Separator)
-
-	for range p.Include {
-		words[randInt(len(words))] = p.Include[0]
-		p.Include = p.Include[1:]
+	for _, word := range p.Include {
+		p.words = append(p.words, word)
 	}
 
-	p.secret = strings.Join(words, p.Separator)
+	// Shuffle the secret to avoid having included words always at the end
+	for i := range p.words {
+		j := randInt(i + 1)
+		p.words[i], p.words[j] = p.words[j], p.words[i]
+	}
 }
 
 // Check if any excluded word is within the secret and (if true) replace it with another random word.
 func (p *Passphrase) excludeWords() {
-	words := strings.Split(p.secret, p.Separator)
-
-	for i, word := range words {
+	for i, word := range p.words {
 		for _, excl := range p.Exclude {
 			if word == excl {
 				switch getFuncName(p.List) {
 				case "NoList":
-					words[i] = generateRandomWord()
+					p.words[i] = generateRandomWord()
 
 				case "WordList":
-					words[i] = atollWords[randInt(len(atollWords))]
+					p.words[i] = atollWords[randInt(len(atollWords))]
 
 				case "SyllableList":
-					words[i] = atollSyllables[randInt(len(atollSyllables))]
+					p.words[i] = atollSyllables[randInt(len(atollSyllables))]
 				}
 
-				p.secret = strings.Join(words, p.Separator)
 				// Use recursion to repeat the process until there is no excluded word
 				p.excludeWords()
 			}
@@ -134,35 +145,63 @@ func (p *Passphrase) excludeWords() {
 
 // NoList generates a random passphrase without using a list, making the potential attacker work harder.
 func NoList(p *Passphrase) {
-	passphrase := make([]string, p.Length)
+	var wg sync.WaitGroup
+	length := int(p.Length) - len(p.Include)
 
-	for i := range passphrase {
-		passphrase[i] = generateRandomWord()
+	wg.Add(int(length))
+	for i := 0; i < length; i++ {
+		go func(i int) {
+			p.words[i] = generateRandomWord()
+			wg.Done()
+		}(i)
 	}
-
-	p.secret = strings.Join(passphrase, p.Separator)
+	wg.Wait()
 }
 
 // WordList generates a passphrase using a wordlist (18,325 long).
 func WordList(p *Passphrase) {
-	passphrase := make([]string, p.Length)
+	length := int(p.Length) - len(p.Include)
 
-	for i := range passphrase {
-		passphrase[i] = atollWords[randInt(len(atollWords))]
+	for i := 0; i < length; i++ {
+		p.words[i] = atollWords[randInt(len(atollWords))]
 	}
-
-	p.secret = strings.Join(passphrase, p.Separator)
 }
 
 // SyllableList generates a passphrase using a syllable list (10,129 long).
 func SyllableList(p *Passphrase) {
-	passphrase := make([]string, p.Length)
+	length := int(p.Length) - len(p.Include)
 
-	for i := range passphrase {
-		passphrase[i] = atollSyllables[randInt(len(atollSyllables))]
+	for i := 0; i < length; i++ {
+		p.words[i] = atollSyllables[randInt(len(atollSyllables))]
+	}
+}
+
+// Entropy returns the bits of entropy of the passphrase.
+//
+// If the list used is "NoList" the secret must be already generated.
+func (p *Passphrase) Entropy() float64 {
+	var poolLength int
+
+	switch getFuncName(p.List) {
+	case "NoList":
+		if len(p.words) == 0 {
+			return 0
+		}
+		// Take out the separators from the secret length
+		// Included and excluded words aren't taken into account
+		secretLength := len(p.words) - (len(p.Separator) * int(p.Length))
+		// -26- represents the dictionary length
+		return math.Log2(math.Pow(float64(26), float64(secretLength)))
+	case "WordList":
+		poolLength = 18325
+	case "SyllableList":
+		poolLength = 10129
 	}
 
-	p.secret = strings.Join(passphrase, p.Separator)
+	poolLength += len(p.Include) - len(p.Exclude)
+
+	// Separators aren't included in the secret length
+	return math.Log2(math.Pow(float64(poolLength), float64(p.Length)))
 }
 
 // generateRandomWord returns a random sword without using any list or dictionary.
@@ -175,10 +214,9 @@ func generateRandomWord() string {
 		// Select a number from 0 to 10, 0-3 is a vowel, else a consonant
 		if randInt(11) <= 3 {
 			syllables[i] = vowels[randInt(len(vowels))]
-			continue
+		} else {
+			syllables[i] = constants[randInt(len(constants))]
 		}
-
-		syllables[i] = constants[randInt(len(constants))]
 	}
 
 	return strings.Join(syllables, "")
