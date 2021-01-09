@@ -12,11 +12,12 @@ Atoll is a library for generating cryptographically secure and higly random secr
 - [Installation](#installation)
 - [Usage](#usage)
 - [Documentation](#documentation)
-    * [Password format levels](#password-format-levels)
-    * [Passphrases options](#passphrases-options)
-    * [Randomness](#randomness)
-    * [Entropy](#entropy)
-    * [More calculations](#more-calculations)   
+    - [Password format levels](#password-format-levels)
+    - [Passphrases options](#passphrases-options)
+    - [Randomness](#randomness)
+    - [Entropy](#entropy)
+    - [Keyspace](#keyspace)
+    - [Seconds to crack](#seconds-to-crack)
 - [Benchmarks](#benchmarks)
 - [License](#license)
 
@@ -95,6 +96,10 @@ Head over [example_test.go](/example_test.go) to see more examples.
 
 ### Password format levels
 
+Kure guarantees that the password will contain at least one of the characters of each level selected (except 4¹), only if the length of the password is higher than the number of levels.
+
+¹ If the format level *4* is used or the user includes a *space* it isn't 100% sure that the space will be part of the secret, as it could be at the end or the start of the password and it would be deleted by the sanitizer.
+
 1. Lowecases (a, b, c...)
 2. Uppercases (A, B, C...)
 3. Digits (1, 2, 3...)
@@ -105,7 +110,7 @@ Head over [example_test.go](/example_test.go) to see more examples.
 
 Atoll offers 3 ways of generating a passphrase:
 
-- **Without** a list (*NoList*): generate random numbers that determine the word length (between 3 and 12 letters) and if the letter is a vowel or a constant (4/10 times a vowel is selected). Note that not using a list makes the potential attacker job harder.
+- **Without** a list (*NoList*): generate random numbers that determine the word length (between 3 and 12 letters) and if the letter is either a vowel or a constant (4/10 times a vowel is selected). Note that not using a list makes the potential attacker job harder.
 
 - With a **Word** list (*WordList*): random words are taken from a 18,235 long word list.
     
@@ -119,57 +124,39 @@ Atoll uses the "crypto/rand" package to generate **cryptographically secure** ra
 
 ### Entropy
 
-> Entropy is a measure of the uncertainty or randomness of a system. The concept is a difficult one to grasp fully and is confusing, even to experts. Strictly speaking, any given passphrase has an entropy of zero because it is already chosen. It is the method you use to randomly select your passphrase that has entropy. Entropy tells how hard it will be to guess the passphrase itself even if an attacker knows the method you used to select your passphrase. A passphrase is more secure if it is selected using a method that has more entropy. Entropy is measured in bits. The outcome of a single coin toss -- "heads or tails" -- has one bit of entropy. - Arnold G. Reinhold
+Entropy is a **measure of the uncertainty of a system**. The concept is a difficult one to grasp fully and is confusing, even to experts. Strictly speaking, any given passphrase has an entropy of zero because it is already chosen. It is the method you use to randomly select your passphrase that has entropy. Entropy tells how hard it will be to guess the passphrase itself even if an attacker knows the method you used to select your passphrase. A passphrase is more secure if it is selected using a method that has more entropy. Entropy is measured in bits. The outcome of a single coin toss -- "heads or tails" -- has one bit of entropy. - *Arnold G. Reinhold*.
 
-`entropy := log2(poolLength ^ secretLength)`
+> Entropy = log2(poolLength ^ secretLength)
 
-**Pool lengths**:
+The French National Cybersecurity Agency (ANSSI) recommends secrets having a minimum of 100 bits when it comes to passwords or secret keys for encryption systems that absolutely must be secure. In fact, the agency recommends 128 bits to guarantee security for several years. It considers 64 bits to be very small (very weak); 64 to 80 bits to be small; and 80 to 100 bits to be medium (moderately strong).
 
-1. Password formats:
-    * Level 1 (lowercases): 26
-    * Level 2 (uppercases): 26
-    * Level 3 (digits): 10
-    * Level 4 (space): 1
-    * Level 5 (specials): 32
-2. Passphrase No list (must be calculated word by word): 26 ^ word length
-3. Passphrase Word list: 18,325
-4. Passphrase Syllable list: 10,129
+### Keyspace
 
-### More calculations
+Keyspace is the set of all possible permutations of a key. On average, half the key space must be searched to find the solution.
 
-In case you want to obtain more information about the secret security, here are some calculations:
+### Seconds to crack
 
-> What is calculated is the 50% of a brute force attack (this is the average an attacker will take to crack the password). Dictionary and social engineering attacks (like shoulder surfing. pretexting, etc) are left out of consideration.
+> When calculating the seconds to crack the secret what is considered is a brute force attack. Dictionary and social engineering attacks (like shoulder surfing. pretexting, etc) are left out of consideration.
 
-- Number of *possible secrets* that the algorithm can generate: 2 ^ entropy
+The time taken in seconds by a brute force attack to crack a secret is calculated by doing `keyspace / guessesPerSecond' where the guesses per second is 1 trillon, this is the number Edward Snowden said we should be prepared for and might be changed in the future.
 
-- Number of *attempts* to crack the secret: (2 ^ entropy) / 2
-
-- Seconds to crack: 
-    > 1,000,000,000,000,000 (1 trillion) is the number of guesses per second Edward Snowden said we should be prepared for
-    * Password: (((2 ^ entropy) / 1,000,000,000,000,000) / 2)
-    * Passphrase: 
-        + *NoList*: 26^SumWordsLength^len(words) -> iterate over words and sum each word length.
-        + *WordList* and *SyllableList*: (((2 ^ entropy) - len(words)) / 1,000,000,000,000,000) / 2
+In 2019 a record was set for a computer trying to generate every conceivable password. It achieved a rate faster than 100 billion guesses per second.
 
 ## Benchmarks
 
-- GOOS: windows
-- GOARCH: amd64
-- GOMAXPROCS: 6
-
-SPECS: 
-    Processor Intel(R) Core(TM) i5-9400F CPU @ 2.90GHz, 2904 Mhz, 6 Core(s), 6 Logical Processor(s)
-
-    16GB RAM
+Specifications: 
+* Operating system: windows.
+* Processor: Intel(R) Core(TM) i5-9400F CPU @ 2.90GHz, 2904 Mhz, 6 Core(s), 6 Logical Processor(s).
+* Installed RAM: 16GB.
+* Graphics card: GeForce GTX 1060 6GB.
 
 ```
-BenchmarkPassword                  	   43316     27158 ns/op    17313 B/op     197 allocs/op
-BenchmarkNewPassword               	   39214     30475 ns/op    19637 B/op     239 allocs/op
-BenchmarkNewPassphrase             	   21698     55174 ns/op     8854 B/op     578 allocs/op
-BenchmarkPassphrase_NoList         	   21978     55008 ns/op     8858 B/op     579 allocs/op
-BenchmarkPassphrase_WordList       	  387115      3051 ns/op      576 B/op      27 allocs/op
-BenchmarkPassphrase_SyllableList   	  428774      2810 ns/op      560 B/op      27 allocs/op
+BenchmarkPassword                  	   40404     29454 ns/op    18831 B/op     212 allocs/op
+BenchmarkNewPassword               	   38706     31132 ns/op    19620 B/op     235 allocs/op
+BenchmarkNewPassphrase             	   33993     35507 ns/op     6411 B/op     400 allocs/op
+BenchmarkPassphrase_NoList         	   35397     33845 ns/op     5741 B/op     357 allocs/op
+BenchmarkPassphrase_WordList       	  266659      4515 ns/op      896 B/op      46 allocs/op
+BenchmarkPassphrase_SyllableList   	  279216      4373 ns/op      880 B/op      46 allocs/op
 ```
 
 Take a look at them [here](/benchmark_test.go).
