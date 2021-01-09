@@ -1,23 +1,42 @@
 package atoll
 
 import (
+	"math"
 	"strings"
 	"testing"
 )
 
 func TestPassphrase(t *testing.T) {
 	cases := map[string]*Passphrase{
-		"No list":        {Length: 14, Separator: "/", Include: []string{}, Exclude: []string{}, List: NoList},
-		"Word list":      {Length: 4, Separator: "", Include: []string{"apple", "orange", "watermelon"}, Exclude: []string{}, List: WordList},
-		"Syllable list":  {Length: 6, Separator: "==", Include: []string{"test"}, Exclude: []string{}, List: SyllableList},
-		"Default values": {Length: 10, Include: []string{"background"}, Exclude: []string{"unit"}},
+		"No list": {
+			Length:    14,
+			Separator: "/",
+			List:      NoList,
+		},
+		"Word list": {
+			Length:    4,
+			Separator: "",
+			Include:   []string{"apple", "orange", "watermelon"},
+			List:      WordList,
+		},
+		"Syllable list": {
+			Length:    6,
+			Separator: "==",
+			Include:   []string{"test"},
+			List:      SyllableList,
+		},
+		"Default values": {
+			Length:  10,
+			Include: []string{"background"},
+			Exclude: []string{"unit"},
+		},
 	}
 
 	for k, tc := range cases {
 		t.Run(k, func(t *testing.T) {
-			passphrase, err := NewSecret(tc)
+			passphrase, err := tc.Generate()
 			if err != nil {
-				t.Fatalf("NewSecret() failed: %v", err)
+				t.Fatalf("Generate() failed: %v", err)
 			}
 
 			words := strings.Split(passphrase, tc.Separator)
@@ -49,13 +68,14 @@ func TestPassphrase(t *testing.T) {
 func TestInvalidPassphrase(t *testing.T) {
 	cases := map[string]*Passphrase{
 		"invalid length":               {Length: 0},
+		"invalid separator":            {Length: 5, Separator: "¿"},
 		"len(Include) > Length":        {Length: 2, Include: []string{"must", "throw", "error"}},
 		"included words also excluded": {Length: 2, Include: []string{"Go"}, Exclude: []string{"Go"}},
 		"invalid included word":        {Length: 7, Include: []string{"ínvalid"}},
 	}
 
 	for k, tc := range cases {
-		if _, err := NewSecret(tc); err == nil {
+		if _, err := tc.Generate(); err == nil {
 			t.Errorf("Expected %q error, got nil", k)
 		}
 	}
@@ -85,19 +105,32 @@ func TestInvalidNewPassphrase(t *testing.T) {
 
 func TestExcludeWords(t *testing.T) {
 	cases := map[string]*Passphrase{
-		"No list":       {secret: "cow horse bee", Separator: " ", Exclude: []string{"cow", "horse", "beer"}, List: NoList},
-		"Word list":     {secret: "about abysmal accurate", Separator: " ", Exclude: []string{"about"}, List: WordList},
-		"Syllable list": {secret: "alt bet bang flux", Separator: " ", Exclude: []string{"alt", "flux"}, List: SyllableList},
+		"No list": {
+			words:     []string{"cow", "horse", "bee"},
+			Separator: " ",
+			Exclude:   []string{"cow", "horse", "beer"},
+			List:      NoList,
+		},
+		"Word list": {
+			words:     []string{"about", "abysmal", "accurate"},
+			Separator: " ",
+			Exclude:   []string{"about"},
+			List:      WordList,
+		},
+		"Syllable list": {
+			words:     []string{"alt", "bet", "bang flux"},
+			Separator: " ",
+			Exclude:   []string{"alt", "flux"},
+			List:      SyllableList,
+		},
 	}
 
 	for k, tc := range cases {
 		t.Run(k, func(t *testing.T) {
 			tc.excludeWords()
 
-			words := strings.Split(tc.secret, tc.Separator)
-
 			for _, exc := range tc.Exclude {
-				for _, word := range words {
+				for _, word := range tc.words {
 					if exc == word {
 						t.Errorf("Found undesired word %q", exc)
 					}
@@ -107,21 +140,64 @@ func TestExcludeWords(t *testing.T) {
 	}
 }
 
-func TestGetFuncName(t *testing.T) {
+func TestPassphraseEntropy(t *testing.T) {
 	cases := []struct {
-		List     func(*Passphrase)
-		Expected string
+		desc     string
+		list     list
+		expected float64
 	}{
-		{List: NoList, Expected: "NoList"},
-		{List: WordList, Expected: "WordList"},
-		{List: SyllableList, Expected: "SyllableList"},
+		{
+			desc: "No list",
+			list: NoList,
+		},
+		{
+			desc:     "Word list",
+			list:     WordList,
+			expected: 56.64641721601138,
+		},
+		{
+			desc:     "Syllable list",
+			list:     SyllableList,
+			expected: 53.225386214754,
+		},
 	}
 
 	for _, tc := range cases {
-		got := getFuncName(tc.List)
+		t.Run(tc.desc, func(t *testing.T) {
+			p := &Passphrase{
+				Length:    4,
+				List:      tc.list,
+				Separator: "/",
+				Include:   []string{"atoll"},
+			}
 
-		if got != tc.Expected {
-			t.Errorf("Expected %q, got %q", tc.Expected, got)
-		}
+			p.Generate()
+
+			// NoList entropy changes everytime as it generates random words
+			if getFuncName(tc.list) == "NoList" {
+				secretLength := len(p.words) - (len(p.Separator) * int(p.Length))
+				tc.expected = math.Log2(math.Pow(float64(26), float64(secretLength)))
+			}
+
+			got := p.Entropy()
+			if got != tc.expected {
+				t.Errorf("Expected %f, got %f", tc.expected, got)
+			}
+		})
+	}
+}
+
+func TestPassphraseEntropyNoSecret(t *testing.T) {
+	p := &Passphrase{
+		Length:    7,
+		List:      NoList,
+		Separator: "/",
+	}
+
+	var expected float64 = 0
+	got := p.Entropy()
+
+	if got != expected {
+		t.Errorf("Expected %f, got %f", expected, got)
 	}
 }

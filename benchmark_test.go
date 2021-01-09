@@ -6,9 +6,9 @@ import (
 
 var password = &Password{
 	Length:  15,
-	Format:  []uint8{1, 2, 3, 4, 5},
+	Format:  []int{1, 2, 3, 4, 5},
 	Include: "bench",
-	Exclude: "mark",
+	Exclude: "mark1234T=%",
 	Repeat:  true,
 }
 
@@ -16,16 +16,16 @@ func BenchmarkPassword(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, err := NewSecret(password)
 		if err != nil {
-			b.Error("Failed generating password")
+			b.Error(err)
 		}
 	}
 }
 
 func BenchmarkNewPassword(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_, err := NewPassword(15, []uint8{1, 2, 3, 4, 5})
+		_, err := NewPassword(password.Length, password.Format)
 		if err != nil {
-			b.Error("Failed generating password")
+			b.Error(err)
 		}
 	}
 }
@@ -39,9 +39,9 @@ var passphrase = &Passphrase{
 
 func BenchmarkNewPassphrase(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_, err := NewPassphrase(6, NoList)
+		_, err := NewPassphrase(passphrase.Length, NoList)
 		if err != nil {
-			b.Error("Failed generating passphrase")
+			b.Error(err)
 		}
 	}
 }
@@ -51,7 +51,7 @@ func BenchmarkPassphrase_NoList(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, err := NewSecret(passphrase)
 		if err != nil {
-			b.Error("Failed generating passphrase")
+			b.Error(err)
 		}
 	}
 }
@@ -61,7 +61,7 @@ func BenchmarkPassphrase_WordList(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, err := NewSecret(passphrase)
 		if err != nil {
-			b.Error("Failed generating passphrase")
+			b.Error(err)
 		}
 	}
 }
@@ -71,7 +71,7 @@ func BenchmarkPassphrase_SyllableList(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, err := NewSecret(passphrase)
 		if err != nil {
-			b.Error("Failed generating passphrase")
+			b.Error(err)
 		}
 	}
 }
