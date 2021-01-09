@@ -11,7 +11,7 @@ import (
 const commonPatterns string = `(?i)abc|123|qwerty|asdf|zxcv|1qaz|
 zaq1|qazwsx|pass|login|admin|master|!@#$|!234|!Q@W`
 
-// getFuncName returns the name of the function.
+// getFuncName returns the name of the function passed.
 func getFuncName(f list) string {
 	// Example: github.com/GGP1/atoll.NoList
 	fn := runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
@@ -29,17 +29,17 @@ func randInt(max int) int {
 }
 
 // randInsert inserts the given char in a random position.
-func randInsert(secret, char string) string {
+func randInsert(secret string, char byte) string {
 	i := randInt(len(secret) + 1)
-	return secret[0:i] + char + secret[i:]
+	return secret[0:i] + string(char) + secret[i:]
 }
 
-// Shuffle changes randomly the order of the password elements.
-func shuffle(password []rune) string {
-	for i := range password {
+// shuffle changes randomly the order of the password elements.
+func shuffle(key []rune) string {
+	for i := range key {
 		j := randInt(i + 1)
-		password[i], password[j] = password[j], password[i]
+		key[i], key[j] = key[j], key[i]
 	}
 
-	return string(password)
+	return string(key)
 }
