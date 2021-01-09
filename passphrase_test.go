@@ -175,7 +175,7 @@ func TestPassphraseEntropy(t *testing.T) {
 
 			// NoList entropy changes everytime as it generates random words
 			if getFuncName(tc.list) == "NoList" {
-				secretLength := len(p.words) - (len(p.Separator) * int(p.Length))
+				secretLength := len(strings.Join(p.words, "")) - (len(p.Separator) * int(p.Length))
 				tc.expected = math.Log2(math.Pow(float64(26), float64(secretLength)))
 			}
 
@@ -196,7 +196,6 @@ func TestPassphraseEntropyNoSecret(t *testing.T) {
 
 	var expected float64 = 0
 	got := p.Entropy()
-
 	if got != expected {
 		t.Errorf("Expected %f, got %f", expected, got)
 	}

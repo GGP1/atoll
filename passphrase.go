@@ -187,15 +187,16 @@ func (p *Passphrase) Entropy() float64 {
 		if len(p.words) == 0 {
 			return 0
 		}
+
+		words := strings.Join(p.words, "")
 		// Take out the separators from the secret length
-		// Included and excluded words aren't taken into account
-		secretLength := len(p.words) - (len(p.Separator) * int(p.Length))
-		// -26- represents the dictionary length
+		secretLength := len(words) - (len(p.Separator) * int(p.Length))
+		// -26- represents the dictionary length (vowels+constants)
 		return math.Log2(math.Pow(float64(26), float64(secretLength)))
 	case "WordList":
-		poolLength = 18325
+		poolLength = len(atollWords)
 	case "SyllableList":
-		poolLength = 10129
+		poolLength = len(atollSyllables)
 	}
 
 	poolLength += len(p.Include) - len(p.Exclude)
