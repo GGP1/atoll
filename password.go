@@ -255,8 +255,6 @@ func (p *Password) validateLevels(levels map[int]struct{}) error {
 	)
 
 	for l := range levels {
-		fail := true
-
 		switch l {
 		case 1:
 			set = lowerCase
@@ -274,14 +272,14 @@ func (p *Password) validateLevels(levels map[int]struct{}) error {
 			levelName = "special"
 		}
 
+		counter := 0
 		for _, excl := range p.Exclude {
-			if !strings.Contains(set, string(excl)) {
-				fail = false
-				break
+			if strings.Contains(set, string(excl)) {
+				counter++
 			}
 		}
 
-		if fail {
+		if counter == len(set) {
 			return fmt.Errorf("%s level is used and all its characters are excluded", levelName)
 		}
 	}

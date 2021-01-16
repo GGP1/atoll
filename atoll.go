@@ -5,7 +5,7 @@ package atoll
 import "math"
 
 // 1 trillion is the number of guesses per second Edward Snowden said we should be prepared for.
-const guessesPerSecond = 1000000000000000
+const guessesPerSecond = 1000000000000
 
 // Secret is the interface that wraps the basic method Generate.
 type Secret interface {

@@ -160,13 +160,13 @@ func TestInvalidPassword(t *testing.T) {
 		},
 		"digit level is used and all the characters are excluded": {
 			Length:  10,
-			Format:  []int{3, 4},
-			Exclude: digit,
+			Format:  []int{1, 3, 4},
+			Exclude: digit + "aB",
 		},
 		"space level is used and all the characters are excluded": {
 			Length:  1,
 			Format:  []int{4},
-			Exclude: space,
+			Exclude: space + "/",
 		},
 		"special level is used and all the characters are excluded": {
 			Length:  20,
