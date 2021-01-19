@@ -4,7 +4,7 @@
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/GGP1/atoll)](https://pkg.go.dev/github.com/GGP1/atoll)
 [![Go Report Card](https://goreportcard.com/badge/github.com/GGP1/atoll)](https://goreportcard.com/report/github.com/GGP1/atoll)
 
-Atoll is a library for generating cryptographically secure and higly random secrets.
+Atoll is a library for generating cryptographically secure and highly random secrets.
 
 # Table of contents
 
@@ -24,7 +24,7 @@ Atoll is a library for generating cryptographically secure and higly random secr
 ## Features
 
 - High level of randomness
-- Well tested, coverage: 100.0% of statements
+- Well tested
 - No dependencies
 - Input validation
 - Secret sanitization
@@ -46,7 +46,7 @@ go get -u github.com/GGP1/atoll
 
 ## Usage
 
-```
+```go
 package main
 
 import (
@@ -65,7 +65,6 @@ func main() {
         Repeat: true,
     }
 
-    // This could be done by calling p.Generate() aswell 
     password, err := atoll.NewSecret(p)
     if err != nil {
         log.Fatal(err)
@@ -80,7 +79,6 @@ func main() {
         List: atoll.NoList,
     }
 
-    // This could be done by calling p2.Generate() aswell
     passphrase, err := atoll.NewSecret(p2)
     if err != nil {
         log.Fatal(err)
@@ -96,9 +94,9 @@ Head over [example_test.go](/example_test.go) to see more examples.
 
 ### Password format levels
 
-Kure guarantees that the password will contain at least one of the characters of each level selected (except 4¹), only if the length of the password is higher than the number of levels.
+Atoll guarantees that the password will contain at least one of the characters of each level selected (except 4¹), only if the length of the password is higher than the number of levels.
 
-¹ If the format level *4* is used or the user includes a *space* it isn't 100% sure that the space will be part of the secret, as it could be at the end or the start of the password and it would be deleted by the sanitizer.
+¹ If the format level *4* is used or the user includes a *space* it isn't 100% sure that the space will be part of the secret, as it could be at the end or the start of the password and it would be deleted and replaced by the sanitizer.
 
 1. Lowecases (a, b, c...)
 2. Uppercases (A, B, C...)
@@ -120,7 +118,7 @@ Atoll offers 3 ways of generating a passphrase:
 
 > Randomness is a measure of the observer's ignorance, not an inherent quality of a process.
 
-Atoll uses the "crypto/rand" package to generate **cryptographically secure** random numbers, which "select" the characters-words-syllables from different pools and also the indices when generating a password.
+Atoll uses the "crypto/rand" package to generate **cryptographically secure** random numbers, which "select" the characters-words-syllables from different pools as well as the indices when generating a password.
 
 ### Entropy
 
@@ -134,11 +132,13 @@ The French National Cybersecurity Agency (ANSSI) recommends secrets having a min
 
 Keyspace is the set of all possible permutations of a key. On average, half the key space must be searched to find the solution.
 
+> Keyspace = poolLength ^ secretLength
+
 ### Seconds to crack
 
 > When calculating the seconds to crack the secret what is considered is a brute force attack. Dictionary and social engineering attacks (like shoulder surfing. pretexting, etc) are left out of consideration.
 
-The time taken in seconds by a brute force attack to crack a secret is calculated by doing `keyspace / guessesPerSecond' where the guesses per second is 1 trillon, this is the number Edward Snowden said we should be prepared for and might be changed in the future.
+The time taken in seconds by a brute force attack to crack a secret is calculated by doing `keyspace / guessesPerSecond` where the guesses per second is 1 trillon, this is the number Edward Snowden said we should be prepared for and might be changed in the future.
 
 In 2019 a record was set for a computer trying to generate every conceivable password. It achieved a rate faster than 100 billion guesses per second.
 
