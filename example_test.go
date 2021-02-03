@@ -10,8 +10,8 @@ import (
 func ExamplePassword() {
 	p := &atoll.Password{
 		Length:  22,
-		Format:  []int{1, 2, 3, 4, 5},
-		Include: "1+=g",
+		Levels:  []atoll.Level{atoll.Lowercase, atoll.Uppercase, atoll.Special},
+		Include: "1+=g ",
 		Exclude: "&r/ty",
 		Repeat:  false,
 	}
@@ -27,7 +27,7 @@ func ExamplePassword() {
 }
 
 func ExampleNewPassword() {
-	password, err := atoll.NewPassword(16, []int{1, 2, 3, 4, 5})
+	password, err := atoll.NewPassword(16, []atoll.Level{atoll.Digit, atoll.Lowercase})
 	if err != nil {
 		log.Fatal(err)
 	}

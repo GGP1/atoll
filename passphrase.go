@@ -85,7 +85,7 @@ func (p *Passphrase) generate() (string, error) {
 	}
 
 	// Initialize secret slice (included words will be appended)
-	p.words = make([]string, int(p.Length)-len(p.Include))
+	p.words = make([]string, int(p.Length))
 	// Defaults
 	if p.Separator == "" {
 		p.Separator = " "
@@ -107,13 +107,14 @@ func (p *Passphrase) generate() (string, error) {
 	return strings.Join(p.words, p.Separator), nil
 }
 
-// includeWords randomly inserts included words in the passphrase, replacing already existing words.
+// includeWords randomly inserts included words in the passphrase.
 func (p *Passphrase) includeWords() {
-	for _, word := range p.Include {
-		p.words = append(p.words, word)
+	// Append included words
+	for i, word := range p.Include {
+		p.words[int(p.Length)-i-1] = word
 	}
 
-	// Shuffle the secret to avoid having included words always at the end
+	// Shuffle the secret so included words aren't always at the end
 	for i := range p.words {
 		j := randInt(i + 1)
 		p.words[i], p.words[j] = p.words[j], p.words[i]

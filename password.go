@@ -8,13 +8,17 @@ import (
 	"strings"
 )
 
+// Password level.
 const (
-	lowerCase = "abcdefghijklmnopqrstuvwxyz"         // Level 1
-	upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"         // Level 2
-	digit     = "0123456789"                         // Level 3
-	space     = " "                                  // Level 4
-	special   = "&$%@#|/\\=\"*~^`'.?!,;:-+_(){}[]<>" // Level 5
+	Lowercase = Level("abcdefghijklmnopqrstuvwxyz")
+	Uppercase = Level("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	Digit     = Level("0123456789")
+	Space     = Level(" ")
+	Special   = Level("&$%@#|/\\=\"*~^`'.?!,;:-+_(){}[]<>")
 )
+
+// Level represents a determined group of characters.
+type Level string
 
 // Password represents a sequence of characters required for access to a computer system.
 type Password struct {
@@ -23,13 +27,8 @@ type Password struct {
 	// Password length.
 	Length uint64
 
-	// Each format element is a level that determines the
-	// set of characters to take into account when creating
-	// the password pool.
-	//
-	// Levels: 1. lowercase, 2. uppercase, 3. digit,
-	// 4. space, 5. special.
-	Format []int
+	// Group of characters used to generate the pool.
+	Levels []Level
 
 	// Characters that will be part of the password.
 	Include string
@@ -42,10 +41,10 @@ type Password struct {
 }
 
 // NewPassword returns a random password.
-func NewPassword(length uint64, format []int) (string, error) {
+func NewPassword(length uint64, levels []Level) (string, error) {
 	p := &Password{
 		Length: length,
-		Format: format,
+		Levels: levels,
 	}
 
 	return p.Generate()
@@ -66,6 +65,10 @@ func (p *Password) generate() (string, error) {
 		return "", errors.New("invalid password length")
 	}
 
+	if len(p.Levels) == 0 {
+		return "", errors.New("no levels were specified")
+	}
+
 	if strings.ContainsAny(p.Include, p.Exclude) {
 		return "", errors.New("included characters cannot be excluded")
 	}
@@ -81,26 +84,25 @@ func (p *Password) generate() (string, error) {
 		return "", errors.New("characters to include exceed the password length")
 	}
 
-	// Get rid of duplicated levels, or return an error if it is invalid
-	levels := make(map[int]struct{})
-	for _, l := range p.Format {
-		if l < 1 || l > 5 {
-			return "", errors.New("format levels must be between 1 and 5")
-		}
-		levels[l] = struct{}{}
-	}
-
-	if err := p.validateLevels(levels); err != nil {
+	if err := p.validateLevels(); err != nil {
 		return "", err
 	}
 
-	p.generatePool(levels)
+	p.generatePool()
+
+	if p.Exclude != "" {
+		// Remove excluded characters from the pool
+		exclChars := strings.Split(p.Exclude, "")
+		for _, c := range exclChars {
+			p.pool = strings.Replace(p.pool, c, "", 1)
+		}
+	}
 
 	if !p.Repeat && int(p.Length) > (len(p.pool)+len(p.Include)) {
 		return "", errors.New("password length is higher than the pool and repetition is turned off")
 	}
 
-	password := p.initPassword(levels)
+	password := p.initPassword()
 	// Subtract the number of characters already added to the password from the total length
 	remaining := int(p.Length) - len(password)
 
@@ -119,57 +121,33 @@ func (p *Password) generate() (string, error) {
 	return password, nil
 }
 
-// generatePool takes the format specified by the user and creates the pool to generate a random password.
-func (p *Password) generatePool(levels map[int]struct{}) {
-	if len(p.Format) == 0 {
-		// Use all the levels by default
-		p.pool = lowerCase + upperCase + digit + space + special
-		return
-	}
+func (p *Password) generatePool() {
+	var b strings.Builder
+	unique := make(map[Level]struct{})
 
-	var i uint8
-	chars := make([]string, len(levels))
-
-	for level := range levels {
-		switch level {
-		case 1:
-			chars[i] = lowerCase
-		case 2:
-			chars[i] = upperCase
-		case 3:
-			chars[i] = digit
-		case 4:
-			chars[i] = space
-		case 5:
-			chars[i] = special
-		}
-
-		i++
-	}
-
-	p.pool = strings.Join(chars, "")
-
-	if p.Exclude != "" {
-		// Remove excluded characters from the pool
-		exclChars := strings.Split(p.Exclude, "")
-		for _, c := range exclChars {
-			p.pool = strings.Replace(p.pool, c, "", 1)
+	for _, lvl := range p.Levels {
+		// Ensure that duplicated levels aren't added twice
+		if _, ok := unique[lvl]; !ok {
+			unique[lvl] = struct{}{}
+			b.Grow(len(lvl))
+			b.WriteString(string(lvl))
 		}
 	}
+
+	p.pool = b.String()
 }
 
 // initPassword creates the password, adds any included word and makes sure that it contains
 // at least 1 character of each level (only if p.Length is longer than levels).
-func (p *Password) initPassword(levels map[int]struct{}) string {
+func (p *Password) initPassword() string {
 	var (
 		password string
 		char     byte
 	)
 
 	// Add included characters
-	for i := range p.Include {
-		c := p.Include[i]
-		password = randInsert(password, c)
+	for _, c := range p.Include {
+		password = randInsert(password, byte(c))
 
 		if !p.Repeat {
 			// Remove character used
@@ -177,28 +155,20 @@ func (p *Password) initPassword(levels map[int]struct{}) string {
 		}
 	}
 
-	if int(p.Length) < len(levels) {
+	if int(p.Length) < len(p.Levels) {
 		return password
 	}
 
-	for level := range levels {
+	for _, lvl := range p.Levels {
 	repeat:
-		switch level {
-		case 1:
-			char = lowerCase[randInt(len(lowerCase))]
-		case 2:
-			char = upperCase[randInt(len(upperCase))]
-		case 3:
-			char = digit[randInt(len(digit))]
-		case 4:
-			char = ' ' // space
-		case 5:
-			char = special[randInt(len(special))]
-		}
+		char = lvl[randInt(len(lvl))]
 
 		// If the pool does not contain the character selected it's because
 		// it was either excluded or already used
 		if !strings.Contains(p.pool, string(char)) {
+			if lvl == Space {
+				continue
+			}
 			goto repeat
 		}
 
@@ -238,49 +208,38 @@ repeat:
 }
 
 // validateLevels checks if Exclude contains all the characters of a level that is in Format.
-func (p *Password) validateLevels(levels map[int]struct{}) error {
-	// If the user excluded the space character and used the space level, return error
-	if _, ok := levels[4]; ok && strings.Contains(p.Exclude, " ") {
-		return errors.New("space level is used and its character is excluded")
-	}
-
-	// The other levels have more than 9 characters
-	if len(p.Exclude) < 10 {
-		return nil
-	}
-
-	var (
-		set       string
-		levelName string
-	)
-
-	for l := range levels {
-		switch l {
-		case 1:
-			set = lowerCase
-			levelName = "lowerCase"
-		case 2:
-			set = upperCase
-			levelName = "upperCase"
-		case 3:
-			set = digit
-			levelName = "digit"
-		case 4:
-			continue // skip as it's already checked above
-		case 5:
-			set = special
-			levelName = "special"
-		}
-
+func (p *Password) validateLevels() error {
+	for _, lvl := range p.Levels {
 		counter := 0
 		for _, excl := range p.Exclude {
-			if strings.Contains(set, string(excl)) {
+			if strings.Contains(string(lvl), string(excl)) {
 				counter++
+				// Stop counting if the character is a space (as it's only one)
+				if lvl == Space {
+					break
+				}
 			}
 		}
 
-		if counter == len(set) {
-			return fmt.Errorf("%s level is used and all its characters are excluded", levelName)
+		if counter == len(lvl) {
+			var lvlName string
+
+			switch lvl {
+			case Lowercase:
+				lvlName = "lowercase"
+			case Uppercase:
+				lvlName = "uppercase"
+			case Digit:
+				lvlName = "digit"
+			case Space:
+				lvlName = "space"
+			case Special:
+				lvlName = "special"
+			default:
+				lvlName = "custom"
+			}
+
+			return fmt.Errorf("%s level is used and all its characters are excluded", lvlName)
 		}
 	}
 
@@ -289,38 +248,18 @@ func (p *Password) validateLevels(levels map[int]struct{}) error {
 
 // Entropy returns the bits of entropy of the password.
 func (p *Password) Entropy() float64 {
-	var poolLength int
+	poolLength := len(p.pool)
+	if p.pool == "" {
+		p.generatePool()
+		poolLength = len(p.pool)
 
-	levels := make(map[int]struct{})
-	for _, l := range p.Format {
-		if l > 0 || l < 6 {
-			levels[l] = struct{}{}
+		// Do not count 2/3 byte characters as they aren't in the pool
+		for _, excl := range p.Exclude {
+			if len(string(excl)) != 1 {
+				poolLength -= strings.Count(p.Exclude, string(excl))
+			}
 		}
 	}
-
-	for level := range levels {
-		switch level {
-		case 1:
-			poolLength += len(lowerCase)
-		case 2:
-			poolLength += len(upperCase)
-		case 3:
-			poolLength += len(digit)
-		case 4:
-			poolLength += len(space)
-		case 5:
-			poolLength += len(special)
-		}
-	}
-
-	// Remove characters from exclude that aren't in the pool
-	for _, excl := range p.Exclude {
-		if len(string(excl)) != 1 {
-			p.Exclude = strings.ReplaceAll(p.Exclude, string(excl), "")
-		}
-	}
-
-	poolLength -= len(p.Exclude)
 
 	return math.Log2(math.Pow(float64(poolLength), float64(p.Length)))
 }

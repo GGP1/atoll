@@ -1,21 +1,18 @@
 package atoll
 
-import (
-	"testing"
-)
+import "testing"
 
 var password = &Password{
 	Length:  15,
-	Format:  []int{1, 2, 3, 4, 5},
+	Levels:  []Level{Lowercase, Uppercase, Digit, Space, Special},
 	Include: "bench",
 	Exclude: "mark1234T=%",
-	Repeat:  true,
+	Repeat:  false,
 }
 
 func BenchmarkPassword(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_, err := NewSecret(password)
-		if err != nil {
+		if _, err := NewSecret(password); err != nil {
 			b.Error(err)
 		}
 	}
@@ -23,8 +20,7 @@ func BenchmarkPassword(b *testing.B) {
 
 func BenchmarkNewPassword(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_, err := NewPassword(password.Length, password.Format)
-		if err != nil {
+		if _, err := NewPassword(password.Length, password.Levels); err != nil {
 			b.Error(err)
 		}
 	}
@@ -39,8 +35,7 @@ var passphrase = &Passphrase{
 
 func BenchmarkNewPassphrase(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_, err := NewPassphrase(passphrase.Length, NoList)
-		if err != nil {
+		if _, err := NewPassphrase(passphrase.Length, NoList); err != nil {
 			b.Error(err)
 		}
 	}
@@ -49,8 +44,7 @@ func BenchmarkNewPassphrase(b *testing.B) {
 func BenchmarkPassphrase_NoList(b *testing.B) {
 	passphrase.List = NoList
 	for i := 0; i < b.N; i++ {
-		_, err := NewSecret(passphrase)
-		if err != nil {
+		if _, err := NewSecret(passphrase); err != nil {
 			b.Error(err)
 		}
 	}
@@ -59,8 +53,7 @@ func BenchmarkPassphrase_NoList(b *testing.B) {
 func BenchmarkPassphrase_WordList(b *testing.B) {
 	passphrase.List = WordList
 	for i := 0; i < b.N; i++ {
-		_, err := NewSecret(passphrase)
-		if err != nil {
+		if _, err := NewSecret(passphrase); err != nil {
 			b.Error(err)
 		}
 	}
@@ -69,8 +62,7 @@ func BenchmarkPassphrase_WordList(b *testing.B) {
 func BenchmarkPassphrase_SyllableList(b *testing.B) {
 	passphrase.List = SyllableList
 	for i := 0; i < b.N; i++ {
-		_, err := NewSecret(passphrase)
-		if err != nil {
+		if _, err := NewSecret(passphrase); err != nil {
 			b.Error(err)
 		}
 	}

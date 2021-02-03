@@ -16,8 +16,8 @@ func TestPassword(t *testing.T) {
 			desc: "Test all",
 			p: &Password{
 				Length:  14,
-				Format:  []int{1, 2, 3, 4, 5},
-				Include: "kure",
+				Levels:  []Level{Lowercase, Uppercase, Digit, Space, Special},
+				Include: "kure ",
 				Exclude: "ad",
 				Repeat:  false,
 			},
@@ -26,7 +26,7 @@ func TestPassword(t *testing.T) {
 			desc: "Repeat",
 			p: &Password{
 				Length:  8,
-				Format:  []int{1, 4},
+				Levels:  []Level{Lowercase, Space},
 				Include: "bee",
 				Repeat:  true,
 			},
@@ -35,21 +35,15 @@ func TestPassword(t *testing.T) {
 			desc: "Length < levels",
 			p: &Password{
 				Length:  2,
-				Format:  []int{1, 3, 4, 5},
+				Levels:  []Level{Lowercase, Digit, Space, Special},
 				Include: "!",
-			},
-		},
-		{
-			desc: "Default values",
-			p: &Password{
-				Length: 20,
 			},
 		},
 		{
 			desc: "Verify levels",
 			p: &Password{
 				Length:  35,
-				Format:  []int{1, 2, 3, 4, 5},
+				Levels:  []Level{Lowercase, Uppercase, Digit, Space, Special},
 				Exclude: "0aT&7896a!45awq-=",
 				Repeat:  true,
 			},
@@ -67,28 +61,14 @@ func TestPassword(t *testing.T) {
 				t.Errorf("Expected password to be %d characters long, got %d", tc.p.Length, len(password))
 			}
 
-			for _, f := range tc.p.Format {
-				var characters string
-
-				switch f {
-				case 1:
-					characters = lowerCase
-				case 2:
-					characters = upperCase
-				case 3:
-					characters = digit
-				case 4:
-					continue // Skip space (4) as we cannot guarantee that it won't be at the start or end of the password
-				case 5:
-					characters = special
-
-				default:
-					t.Errorf("Invalid format level, minimum is 1 and maximum 5, got %d", f)
+			for i, lvl := range tc.p.Levels {
+				if lvl == Space {
+					continue
 				}
 
-				if int(tc.p.Length) > len(tc.p.Format) {
-					if !strings.ContainsAny(password, characters) {
-						t.Errorf("Expected the password to contain at least one character of the level %d", f)
+				if int(tc.p.Length) > len(tc.p.Levels) {
+					if !strings.ContainsAny(password, string(lvl)) {
+						t.Errorf("Expected the password to contain at least one character of the level %d", i)
 					}
 				}
 			}
@@ -126,52 +106,57 @@ func TestPassword(t *testing.T) {
 func TestInvalidPassword(t *testing.T) {
 	cases := map[string]*Password{
 		"invalid length": {Length: 0},
-		"invalid format": {
-			Length: 5,
-			Format: []int{0, 1, 4, 6},
-		},
+		"invalid levels": {Length: 10},
 		"not enough characters to meet the length required": {
 			Length: 30,
-			Format: []int{1},
+			Levels: []Level{Lowercase},
 			Repeat: false,
 		},
 		"include characters also excluded": {
 			Length:  7,
+			Levels:  []Level{Digit},
 			Include: "?",
 			Exclude: "?",
 		},
 		"include characters exceeds the length": {
 			Length:  3,
+			Levels:  []Level{Digit},
 			Include: "abcd",
 		},
 		"invalid include character": {
 			Length:  5,
+			Levels:  []Level{Digit},
 			Include: "éÄ",
 		},
-		"lowercase level is used and all the characters are excluded": {
+		"lowercase level chars are excluded": {
 			Length:  26,
-			Format:  []int{1, 4},
-			Exclude: lowerCase,
+			Levels:  []Level{Lowercase, Space},
+			Exclude: string(Lowercase),
 		},
-		"uppercase level is used and all the characters are excluded": {
+		"uppercase level chars are excluded": {
 			Length:  26,
-			Format:  []int{2, 4},
-			Exclude: upperCase,
+			Levels:  []Level{Uppercase, Space},
+			Exclude: string(Uppercase),
 		},
-		"digit level is used and all the characters are excluded": {
+		"digit level chars are excluded": {
 			Length:  10,
-			Format:  []int{1, 3, 4},
-			Exclude: digit + "aB",
+			Levels:  []Level{Lowercase, Digit, Space},
+			Exclude: string(Digit) + "aB",
 		},
-		"space level is used and all the characters are excluded": {
+		"space level chars are excluded": {
 			Length:  1,
-			Format:  []int{4},
-			Exclude: space + "/",
+			Levels:  []Level{Space},
+			Exclude: string(Space) + "/",
 		},
-		"special level is used and all the characters are excluded": {
+		"special level chars are excluded": {
 			Length:  20,
-			Format:  []int{4, 5},
-			Exclude: special,
+			Levels:  []Level{Space, Special},
+			Exclude: string(Special),
+		},
+		"custom level chars are excluded": {
+			Length:  12,
+			Levels:  []Level{Level("test")},
+			Exclude: "test",
 		},
 	}
 
@@ -184,7 +169,7 @@ func TestInvalidPassword(t *testing.T) {
 
 func TestNewPassword(t *testing.T) {
 	length := 15
-	password, err := NewPassword(uint64(length), []int{1, 2, 3})
+	password, err := NewPassword(uint64(length), []Level{Lowercase, Uppercase, Digit})
 	if err != nil {
 		t.Fatalf("NewPassword() failed: %v", err)
 	}
@@ -193,7 +178,7 @@ func TestNewPassword(t *testing.T) {
 		t.Errorf("Expected length to be %d but got %d", length, len(password))
 	}
 
-	if strings.ContainsAny(password, space+special) {
+	if strings.ContainsAny(password, string(Space)+string(Special)) {
 		t.Error("Found undesired characters")
 	}
 }
@@ -201,15 +186,13 @@ func TestNewPassword(t *testing.T) {
 func TestInvalidNewPassword(t *testing.T) {
 	cases := map[string]struct {
 		length uint64
-		format []int
+		levels []Level
 	}{
-		"invalid format": {length: 5, format: []int{0, 1, 4, 9}},
-		"invalid length": {length: 0, format: []int{1}},
+		"invalid length": {length: 0, levels: []Level{Lowercase}},
 	}
 
 	for k, tc := range cases {
-		_, err := NewPassword(tc.length, tc.format)
-		if err == nil {
+		if _, err := NewPassword(tc.length, tc.levels); err == nil {
 			t.Errorf("Expected %q error, got nil", k)
 		}
 	}
@@ -223,41 +206,24 @@ func TestGeneratePool(t *testing.T) {
 	}{
 		"All levels": {
 			fail:     false,
-			pool:     lowerCase + upperCase + digit + space + special,
-			password: &Password{Format: []int{1, 2, 3, 4, 5}, Exclude: "aA"},
+			pool:     string(Lowercase + Uppercase + Digit + Space + Special),
+			password: &Password{Levels: []Level{Lowercase, Uppercase, Digit, Space, Special}, Exclude: "aA"},
 		},
 		"Repeating levels": {
 			fail:     false,
-			pool:     lowerCase + upperCase + digit + space + special,
-			password: &Password{Format: []int{1, 1, 2, 2, 3, 3, 4, 4, 5, 5}},
+			pool:     string(Lowercase) + string(Digit),
+			password: &Password{Levels: []Level{Lowercase, Lowercase, Digit, Digit}},
 		},
 		"First three levels": {
 			fail:     true,
-			pool:     lowerCase + upperCase + digit,
-			password: &Password{Format: []int{1, 2, 3}, Exclude: "123"},
-		},
-		"Invalid levels": {
-			fail:     true,
-			pool:     "",
-			password: &Password{Format: []int{0, 4, 6}},
-		},
-		"Default format": {
-			fail:     false,
-			pool:     lowerCase + upperCase + digit + space + special,
-			password: &Password{},
+			pool:     string(Lowercase) + string(Uppercase) + string(Digit),
+			password: &Password{Levels: []Level{Lowercase, Uppercase, Digit}, Exclude: "123"},
 		},
 	}
 
 	for k, tc := range cases {
 		t.Run(k, func(t *testing.T) {
-			levels := make(map[int]struct{})
-			for _, l := range tc.password.Format {
-				if l > 0 && l < 6 {
-					levels[l] = struct{}{}
-				}
-			}
-
-			tc.password.generatePool(levels)
+			tc.password.generatePool()
 
 			for _, e := range tc.password.Exclude {
 				tc.pool = strings.ReplaceAll(tc.pool, string(e), "")
@@ -265,10 +231,6 @@ func TestGeneratePool(t *testing.T) {
 
 			if !strings.ContainsAny(tc.password.pool, tc.pool) && tc.pool != "" {
 				t.Error("Pool does not contain an expected character")
-			}
-
-			if strings.ContainsAny(tc.password.pool, tc.password.Exclude) {
-				t.Errorf("Pool contains unexpected characters: %q", tc.password.Exclude)
 			}
 		})
 	}
@@ -278,7 +240,7 @@ func TestSanitize(t *testing.T) {
 	cases := []string{" trimSpacesX ", "admin123login"}
 
 	p := &Password{Length: 13}
-	p.pool = lowerCase + upperCase + digit
+	p.pool = string(Lowercase) + string(Uppercase) + string(Digit)
 
 	for _, tc := range cases {
 		got := p.sanitize(tc)
@@ -307,11 +269,11 @@ func TestSanitize(t *testing.T) {
 func TestPasswordEntropy(t *testing.T) {
 	p := &Password{
 		Length:  20,
-		Format:  []int{1, 2, 3, 4, 5},
+		Levels:  []Level{Lowercase, Uppercase, Digit, Space, Special},
 		Exclude: "a1r/ö",
 	}
 
-	expected := 130.15589280397393
+	expected := 131.09177703355275
 
 	got := p.Entropy()
 	if got != expected {

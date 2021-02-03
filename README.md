@@ -12,7 +12,7 @@ Atoll is a library for generating cryptographically secure and highly random sec
 - [Installation](#installation)
 - [Usage](#usage)
 - [Documentation](#documentation)
-    - [Password format levels](#password-format-levels)
+    - [Password levels](#password-levels)
     - [Passphrases options](#passphrases-options)
     - [Randomness](#randomness)
     - [Entropy](#entropy)
@@ -32,7 +32,7 @@ Atoll is a library for generating cryptographically secure and highly random sec
 - Include characters/words/syllables in random positions
 - Exclude any undesired character/word/syllable
 - **Password**:
-    * Up to 5 different [format levels](#password-format-levels)
+    * 5 different [levels](#password-levels) (custom levels can be added as well)
     * Enable/disable character repetition
 - **Passphrase**:
     * Choose between Word, Syllable or No list options to generate the passphrase
@@ -60,7 +60,7 @@ func main() {
     // Generate a random password
     p := &atoll.Password{
         Length: 16,
-        Format: []int{1, 2, 3, 4, 5},
+        Levels: []int{atoll.Lowercase, atoll.Uppercase, atoll.Digit},
         Include: "á&1",
         Repeat: true,
     }
@@ -92,11 +92,11 @@ Head over [example_test.go](/example_test.go) to see more examples.
 
 ## Documentation
 
-### Password format levels
+### Password levels
 
-Atoll guarantees that the password will contain at least one of the characters of each level selected (except 4¹), only if the length of the password is higher than the number of levels.
+Atoll guarantees that the password will contain at least one of the characters of each level selected (except Space¹), only if the length of the password is higher than the number of levels.
 
-¹ If the format level *4* is used or the user includes a *space* it isn't 100% sure that the space will be part of the secret, as it could be at the end or the start of the password and it would be deleted and replaced by the sanitizer.
+¹ If the level *Space* is used or the user includes a *space* it isn't 100% sure that the space will be part of the secret, as it could be at the end or the start of the password and it would be deleted and replaced by the sanitizer.
 
 1. Lowecases (a, b, c...)
 2. Uppercases (A, B, C...)
@@ -151,12 +151,12 @@ Specifications:
 * Graphics card: GeForce GTX 1060 6GB.
 
 ```
-BenchmarkPassword                  	   40404     29454 ns/op    18831 B/op     212 allocs/op
-BenchmarkNewPassword               	   38706     31132 ns/op    19620 B/op     235 allocs/op
-BenchmarkNewPassphrase             	   33993     35507 ns/op     6411 B/op     400 allocs/op
-BenchmarkPassphrase_NoList         	   35397     33845 ns/op     5741 B/op     357 allocs/op
-BenchmarkPassphrase_WordList       	  266659      4515 ns/op      896 B/op      46 allocs/op
-BenchmarkPassphrase_SyllableList   	  279216      4373 ns/op      880 B/op      46 allocs/op
+BenchmarkPassword                  	   36582     32448 ns/op    21442 B/op     245 allocs/op
+BenchmarkNewPassword               	   38583     31309 ns/op    19728 B/op     237 allocs/op
+BenchmarkNewPassphrase             	   33897     35195 ns/op     6405 B/op     399 allocs/op
+BenchmarkPassphrase_NoList         	   35926     33569 ns/op     5594 B/op     356 allocs/op
+BenchmarkPassphrase_WordList       	  279076      4415 ns/op      752 B/op      45 allocs/op
+BenchmarkPassphrase_SyllableList   	  285678      4295 ns/op      736 B/op      45 allocs/op
 ```
 
 Take a look at them [here](/benchmark_test.go).
