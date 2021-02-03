@@ -127,7 +127,7 @@ func (p *Password) generatePool() {
 
 	for _, lvl := range p.Levels {
 		// Ensure that duplicated levels aren't added twice
-		if _, ok := unique[lvl]; !ok {
+		if _, ok := unique[lvl]; !ok && len(lvl) > 0 {
 			unique[lvl] = struct{}{}
 			b.Grow(len(lvl))
 			b.WriteString(string(lvl))
@@ -210,6 +210,10 @@ repeat:
 // validateLevels checks if Exclude contains all the characters of a level that is in Format.
 func (p *Password) validateLevels() error {
 	for _, lvl := range p.Levels {
+		if len(lvl) < 1 {
+			continue
+		}
+
 		counter := 0
 		for _, excl := range p.Exclude {
 			if strings.Contains(string(lvl), string(excl)) {
