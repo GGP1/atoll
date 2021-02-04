@@ -107,6 +107,7 @@ func TestInvalidPassword(t *testing.T) {
 	cases := map[string]*Password{
 		"invalid length": {Length: 0},
 		"invalid levels": {Length: 10},
+		"empty level":    {Length: 3, Levels: []Level{Level("")}},
 		"not enough characters to meet the length required": {
 			Length: 30,
 			Levels: []Level{Lowercase},

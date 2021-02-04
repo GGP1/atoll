@@ -211,7 +211,7 @@ repeat:
 func (p *Password) validateLevels() error {
 	for _, lvl := range p.Levels {
 		if len(lvl) < 1 {
-			continue
+			return errors.New("empty levels aren't allowed")
 		}
 
 		counter := 0
