@@ -66,3 +66,14 @@ func ExampleNewPassphrase() {
 	// Example output:
 	// ynuafnezm hvoq asruso jvoe psiro
 }
+
+func ExampleKeyspace() {
+	p := &atoll.Password{
+		Length: 6,
+		Levels: []atoll.Level{atoll.Lowercase},
+		Repeat: false,
+	}
+
+	fmt.Println(atoll.Keyspace(p))
+	// Output: 3.089157759999998e+08
+}

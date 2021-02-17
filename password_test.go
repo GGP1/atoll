@@ -274,7 +274,7 @@ func TestPasswordEntropy(t *testing.T) {
 		Exclude: "a1r/ö",
 	}
 
-	expected := 131.09177703355275
+	expected := 136.65780028329485
 
 	got := p.Entropy()
 	if got != expected {

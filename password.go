@@ -107,12 +107,12 @@ func (p *Password) generate() (string, error) {
 	remaining := int(p.Length) - len(password)
 
 	for i := 0; i < remaining; i++ {
-		c := p.pool[randInt(len(p.pool))]
-		password = randInsert(password, c)
+		char := p.pool[randInt(len(p.pool))]
+		password = randInsert(password, char)
 
 		if !p.Repeat {
 			// Remove element used
-			p.pool = strings.Replace(p.pool, string(c), "", 1)
+			p.pool = strings.Replace(p.pool, string(char), "", 1)
 		}
 	}
 
@@ -122,19 +122,19 @@ func (p *Password) generate() (string, error) {
 }
 
 func (p *Password) generatePool() {
-	var b strings.Builder
+	var sb strings.Builder
 	unique := make(map[Level]struct{})
 
 	for _, lvl := range p.Levels {
 		// Ensure that duplicated levels aren't added twice
 		if _, ok := unique[lvl]; !ok && len(lvl) > 0 {
 			unique[lvl] = struct{}{}
-			b.Grow(len(lvl))
-			b.WriteString(string(lvl))
+			sb.Grow(len(lvl))
+			sb.WriteString(string(lvl))
 		}
 	}
 
-	p.pool = b.String()
+	p.pool = sb.String()
 }
 
 // initPassword creates the password, adds any included word and makes sure that it contains
@@ -207,7 +207,7 @@ repeat:
 	return password
 }
 
-// validateLevels checks if Exclude contains all the characters of a level that is in Format.
+// validateLevels checks if Exclude contains all the characters of a level that is in Levels.
 func (p *Password) validateLevels() error {
 	for _, lvl := range p.Levels {
 		if len(lvl) < 1 {
@@ -250,12 +250,16 @@ func (p *Password) validateLevels() error {
 	return nil
 }
 
-// Entropy returns the bits of entropy of the password.
+// Entropy returns the password entropy in bits.
 func (p *Password) Entropy() float64 {
 	poolLength := len(p.pool)
 	if p.pool == "" {
 		p.generatePool()
 		poolLength = len(p.pool)
+
+		if !p.Repeat {
+			poolLength -= int(p.Length)
+		}
 
 		// Do not count 2/3 byte characters as they aren't in the pool
 		for _, excl := range p.Exclude {
@@ -263,6 +267,11 @@ func (p *Password) Entropy() float64 {
 				poolLength -= strings.Count(p.Exclude, string(excl))
 			}
 		}
+	}
+
+	// Add the characters that were removed from the pool
+	if !p.Repeat {
+		poolLength += int(p.Length)
 	}
 
 	return math.Log2(math.Pow(float64(poolLength), float64(p.Length)))

@@ -84,7 +84,7 @@ func (p *Passphrase) generate() (string, error) {
 		}
 	}
 
-	// Initialize secret slice (included words will be appended)
+	// Initialize secret slice
 	p.words = make([]string, int(p.Length))
 	// Defaults
 	if p.Separator == "" {
@@ -109,7 +109,7 @@ func (p *Passphrase) generate() (string, error) {
 
 // includeWords randomly inserts included words in the passphrase.
 func (p *Passphrase) includeWords() {
-	// Append included words
+	// Add included words at the end of the secret
 	for i, word := range p.Include {
 		p.words[int(p.Length)-i-1] = word
 	}
@@ -121,7 +121,7 @@ func (p *Passphrase) includeWords() {
 	}
 }
 
-// Check if any excluded word is within the secret and (if true) replace it with another random word.
+// excludeWords checks if any excluded word is within the secret and (if true) replace it with another random word.
 func (p *Passphrase) excludeWords() {
 	for i, word := range p.words {
 		for _, excl := range p.Exclude {
@@ -177,7 +177,7 @@ func SyllableList(p *Passphrase) {
 	}
 }
 
-// Entropy returns the bits of entropy of the passphrase.
+// Entropy returns the passphrase entropy in bits.
 //
 // If the list used is "NoList" the secret must be already generated.
 func (p *Passphrase) Entropy() float64 {
@@ -192,8 +192,7 @@ func (p *Passphrase) Entropy() float64 {
 		words := strings.Join(p.words, "")
 		// Take out the separators from the secret length
 		secretLength := len(words) - (len(p.Separator) * int(p.Length))
-		// -26- represents the dictionary length (vowels+constants)
-		return math.Log2(math.Pow(float64(26), float64(secretLength)))
+		return math.Log2(math.Pow(float64(len(vowels)+len(constants)), float64(secretLength)))
 	case "WordList":
 		poolLength = len(atollWords)
 	case "SyllableList":
