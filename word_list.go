@@ -1,6 +1,5 @@
 package atoll
 
-// 1Password word list
 var atollWords = []string{
 	"aardvark",
 	"abaci",

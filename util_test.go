@@ -21,19 +21,6 @@ func TestGetFuncName(t *testing.T) {
 	}
 }
 
-func TestRandInsert(t *testing.T) {
-	secret := ""
-	char1 := 'a'
-	char2 := 'b'
-
-	got1 := randInsert(secret, byte(char1))
-	got2 := randInsert(got1, byte(char2))
-
-	if got2 != "ab" && got2 != "ba" {
-		t.Errorf("Failed inserting a random character")
-	}
-}
-
 func TestShuffle(t *testing.T) {
 	var p string = "%A$Ks#a0t14|&23"
 	password := []rune(p)

@@ -90,35 +90,50 @@ func (p *Password) generate() (string, error) {
 
 	p.generatePool()
 
-	if p.Exclude != "" {
-		// Remove excluded characters from the pool
-		exclChars := strings.Split(p.Exclude, "")
-		for _, c := range exclChars {
-			p.pool = strings.Replace(p.pool, c, "", 1)
-		}
-	}
-
 	if !p.Repeat && int(p.Length) > (len(p.pool)+len(p.Include)) {
 		return "", errors.New("password length is higher than the pool and repetition is turned off")
 	}
 
-	password := p.initPassword()
-	// Subtract the number of characters already added to the password from the total length
-	remaining := int(p.Length) - len(password)
-
-	for i := 0; i < remaining; i++ {
-		char := p.pool[randInt(len(p.pool))]
-		password = randInsert(password, char)
-
-		if !p.Repeat {
-			// Remove element used
-			p.pool = strings.Replace(p.pool, string(char), "", 1)
-		}
-	}
-
+	password := p.buildPassword()
 	password = p.sanitize(password)
 
 	return password, nil
+}
+
+// buildPassword creates the password.
+func (p *Password) buildPassword() string {
+	var password string
+	// Add included characters
+	for _, c := range p.Include {
+		password = p.randInsert(password, byte(c))
+	}
+
+	// Add one character of each level only if we can guarantee it
+	if int(p.Length) > len(p.Levels) {
+		for _, lvl := range p.Levels {
+		repeat:
+			char := lvl[randInt(len(lvl))]
+
+			// If the pool does not contain the character selected it's because
+			// it was either excluded or already used
+			if !strings.Contains(p.pool, string(char)) {
+				if lvl == Space {
+					continue
+				}
+				goto repeat
+			}
+
+			password = p.randInsert(password, char)
+		}
+	}
+
+	// Subtract the number of characters already added to the password from the total length
+	remaining := int(p.Length) - len(password)
+	for i := 0; i < remaining; i++ {
+		password = p.randInsert(password, p.pool[randInt(len(p.pool))])
+	}
+
+	return password
 }
 
 func (p *Password) generatePool() {
@@ -127,7 +142,7 @@ func (p *Password) generatePool() {
 
 	for _, lvl := range p.Levels {
 		// Ensure that duplicated levels aren't added twice
-		if _, ok := unique[lvl]; !ok && len(lvl) > 0 {
+		if _, ok := unique[lvl]; !ok {
 			unique[lvl] = struct{}{}
 			sb.Grow(len(lvl))
 			sb.WriteString(string(lvl))
@@ -135,49 +150,25 @@ func (p *Password) generatePool() {
 	}
 
 	p.pool = sb.String()
+
+	if p.Exclude != "" {
+		// Remove excluded characters from the pool
+		exclChars := strings.Split(p.Exclude, "")
+		for _, c := range exclChars {
+			p.pool = strings.Replace(p.pool, c, "", 1)
+		}
+	}
 }
 
-// initPassword creates the password, adds any included word and makes sure that it contains
-// at least 1 character of each level (only if p.Length is longer than levels).
-func (p *Password) initPassword() string {
-	var (
-		password string
-		char     byte
-	)
+// randInsert returns password with char inserted in a random position and removes char from pool in
+// case p.Repeat is set to false.
+func (p *Password) randInsert(password string, char byte) string {
+	i := randInt(len(password) + 1)
+	password = password[0:i] + string(char) + password[i:]
 
-	// Add included characters
-	for _, c := range p.Include {
-		password = randInsert(password, byte(c))
-
-		if !p.Repeat {
-			// Remove character used
-			p.pool = strings.Replace(p.pool, string(c), "", 1)
-		}
-	}
-
-	if int(p.Length) < len(p.Levels) {
-		return password
-	}
-
-	for _, lvl := range p.Levels {
-	repeat:
-		char = lvl[randInt(len(lvl))]
-
-		// If the pool does not contain the character selected it's because
-		// it was either excluded or already used
-		if !strings.Contains(p.pool, string(char)) {
-			if lvl == Space {
-				continue
-			}
-			goto repeat
-		}
-
-		password = randInsert(password, char)
-
-		if !p.Repeat {
-			// Remove character used
-			p.pool = strings.Replace(p.pool, string(char), "", 1)
-		}
+	if !p.Repeat {
+		// Remove character used
+		p.pool = strings.Replace(p.pool, string(char), "", 1)
 	}
 
 	return password
@@ -193,7 +184,7 @@ func (p *Password) sanitize(password string) string {
 
 		for i := 0; i < offset; i++ {
 			// Add remaining characters in random positions
-			password = randInsert(password, p.pool[randInt(len(p.pool))])
+			password = p.randInsert(password, p.pool[randInt(len(p.pool))])
 		}
 	}
 
@@ -210,6 +201,9 @@ repeat:
 // validateLevels checks if Exclude contains all the characters of a level that is in Levels.
 func (p *Password) validateLevels() error {
 	for _, lvl := range p.Levels {
+		if len(lvl) > len(p.Exclude) {
+			continue
+		}
 		if len(lvl) < 1 {
 			return errors.New("empty levels aren't allowed")
 		}
@@ -252,27 +246,8 @@ func (p *Password) validateLevels() error {
 
 // Entropy returns the password entropy in bits.
 func (p *Password) Entropy() float64 {
+	p.generatePool()
 	poolLength := len(p.pool)
-	if p.pool == "" {
-		p.generatePool()
-		poolLength = len(p.pool)
-
-		if !p.Repeat {
-			poolLength -= int(p.Length)
-		}
-
-		// Do not count 2/3 byte characters as they aren't in the pool
-		for _, excl := range p.Exclude {
-			if len(string(excl)) != 1 {
-				poolLength -= strings.Count(p.Exclude, string(excl))
-			}
-		}
-	}
-
-	// Add the characters that were removed from the pool
-	if !p.Repeat {
-		poolLength += int(p.Length)
-	}
-
+	poolLength += len(p.Include)
 	return math.Log2(math.Pow(float64(poolLength), float64(p.Length)))
 }

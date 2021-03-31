@@ -1,6 +1,5 @@
 package atoll
 
-// 1Password syllable list
 var atollSyllables = []string{
 	"ab",
 	"ac",

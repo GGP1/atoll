@@ -75,13 +75,13 @@ func TestPassword(t *testing.T) {
 
 			for _, inc := range tc.p.Include {
 				// Skip space as we cannot guarantee that it won't be at the start or end of the password
-				if !strings.ContainsAny(password, string(inc)) && inc != ' ' {
+				if !strings.Contains(password, string(inc)) && inc != ' ' {
 					t.Errorf("Character %q is not included", inc)
 				}
 			}
 
 			for _, exc := range tc.p.Exclude {
-				if strings.ContainsAny(password, string(exc)) {
+				if strings.Contains(password, string(exc)) {
 					t.Errorf("Found undesired character: %q", exc)
 				}
 			}
@@ -237,6 +237,23 @@ func TestGeneratePool(t *testing.T) {
 	}
 }
 
+func TestRandInsert(t *testing.T) {
+	p := &Password{Length: 13, Repeat: false}
+	char1 := 'a'
+	char2 := 'b'
+
+	password := ""
+	password = p.randInsert(password, byte(char1))
+	password = p.randInsert(password, byte(char2))
+
+	if password != "ab" && password != "ba" {
+		t.Errorf("Expected \"ab\"/\"ba\" and got %q", password)
+	}
+	if strings.ContainsAny(p.pool, "ab") {
+		t.Errorf("Failed removing characters from the pool")
+	}
+}
+
 func TestSanitize(t *testing.T) {
 	cases := []string{" trimSpacesX ", "admin123login"}
 
@@ -273,8 +290,7 @@ func TestPasswordEntropy(t *testing.T) {
 		Levels:  []Level{Lowercase, Uppercase, Digit, Space, Special},
 		Exclude: "a1r/ö",
 	}
-
-	expected := 136.65780028329485
+	expected := 130.15589280397393
 
 	got := p.Entropy()
 	if got != expected {

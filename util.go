@@ -28,12 +28,6 @@ func randInt(max int) int {
 	return int(randN.Int64())
 }
 
-// randInsert inserts the given char in a random position.
-func randInsert(secret string, char byte) string {
-	i := randInt(len(secret) + 1)
-	return secret[0:i] + string(char) + secret[i:]
-}
-
 // shuffle changes randomly the order of the password elements.
 func shuffle(key []rune) string {
 	for i := range key {
