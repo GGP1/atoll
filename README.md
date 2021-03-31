@@ -6,21 +6,6 @@
 
 Atoll is a library for generating cryptographically secure and highly random secrets.
 
-# Table of contents
-
-- [Features](#features)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Documentation](#documentation)
-    - [Password levels](#password-levels)
-    - [Passphrases options](#passphrases-options)
-    - [Randomness](#randomness)
-    - [Entropy](#entropy)
-    - [Keyspace](#keyspace)
-    - [Seconds to crack](#seconds-to-crack)
-- [Benchmarks](#benchmarks)
-- [License](#license)
-
 ## Features
 
 - High level of randomness
@@ -32,7 +17,7 @@ Atoll is a library for generating cryptographically secure and highly random sec
 - Include characters/words/syllables in random positions
 - Exclude any undesired character/word/syllable
 - **Password**:
-    * 5 different [levels](#password-levels) (custom levels can be added as well)
+    * 5 different [levels](#password-levels) (custom levels can be used as well)
     * Enable/disable character repetition
 - **Passphrase**:
     * Choose between Word, Syllable or No list options to generate the passphrase
@@ -151,12 +136,12 @@ Specifications:
 * Graphics card: GeForce GTX 1060 6GB.
 
 ```
-BenchmarkPassword                  	   36582     32448 ns/op    21442 B/op     245 allocs/op
-BenchmarkNewPassword               	   38583     31309 ns/op    19728 B/op     237 allocs/op
-BenchmarkNewPassphrase             	   33897     35195 ns/op     6405 B/op     399 allocs/op
-BenchmarkPassphrase_NoList         	   35926     33569 ns/op     5594 B/op     356 allocs/op
-BenchmarkPassphrase_WordList       	  279076      4415 ns/op      752 B/op      45 allocs/op
-BenchmarkPassphrase_SyllableList   	  285678      4295 ns/op      736 B/op      45 allocs/op
+BenchmarkPassword                  	   41131	     28934 ns/op	   19172 B/op	     219 allocs/op
+BenchmarkNewPassword               	   41134	     28438 ns/op	   18291 B/op	     222 allocs/op
+BenchmarkNewPassphrase             	   43256	     27454 ns/op	    6400 B/op	     399 allocs/op
+BenchmarkPassphrase_NoList         	   42313	     27322 ns/op	    5589 B/op	     355 allocs/op
+BenchmarkPassphrase_WordList       	  398469	      3866 ns/op	     752 B/op	      45 allocs/op
+BenchmarkPassphrase_SyllableList   	  361910	      3714 ns/op	     736 B/op	      45 allocs/op
 ```
 
 Take a look at them [here](/benchmark_test.go).
