@@ -4,17 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"regexp"
 	"strings"
 )
 
 // Password level.
 const (
-	Lowercase = Level("abcdefghijklmnopqrstuvwxyz")
-	Uppercase = Level("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-	Digit     = Level("0123456789")
-	Space     = Level(" ")
-	Special   = Level("&$%@#|/\\=\"*~^`'.?!,;:-+_(){}[]<>")
+	Lower   = Level("abcdefghijklmnopqrstuvwxyz")
+	Upper   = Level("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	Digit   = Level("0123456789")
+	Space   = Level(" ")
+	Special = Level("&$%@#|/\\=\"*~^`'.?!,;:-+_(){}[]<>")
 )
 
 // Level represents a determined group of characters.
@@ -61,30 +60,7 @@ func (p *Password) Generate() (string, error) {
 }
 
 func (p *Password) generate() (string, error) {
-	if p.Length < 1 {
-		return "", errors.New("invalid password length")
-	}
-
-	if len(p.Levels) == 0 {
-		return "", errors.New("no levels were specified")
-	}
-
-	if strings.ContainsAny(p.Include, p.Exclude) {
-		return "", errors.New("included characters cannot be excluded")
-	}
-
-	// Check if include contains 2/3 bytes characters
-	for _, incl := range p.Include {
-		if len(string(incl)) != 1 {
-			return "", fmt.Errorf("include contains invalid characters: %q", string(incl))
-		}
-	}
-
-	if len(p.Include) > int(p.Length) {
-		return "", errors.New("characters to include exceed the password length")
-	}
-
-	if err := p.validateLevels(); err != nil {
+	if err := p.validateParams(); err != nil {
 		return "", err
 	}
 
@@ -155,7 +131,7 @@ func (p *Password) generatePool() {
 		// Remove excluded characters from the pool
 		exclChars := strings.Split(p.Exclude, "")
 		for _, c := range exclChars {
-			p.pool = strings.Replace(p.pool, c, "", 1)
+			p.pool = removeChar(p.pool, c)
 		}
 	}
 }
@@ -164,11 +140,11 @@ func (p *Password) generatePool() {
 // case p.Repeat is set to false.
 func (p *Password) randInsert(password string, char byte) string {
 	i := randInt(len(password) + 1)
-	password = password[0:i] + string(char) + password[i:]
+	password = password[:i] + string(char) + password[i:]
 
 	if !p.Repeat {
 		// Remove character used
-		p.pool = strings.Replace(p.pool, string(char), "", 1)
+		p.pool = removeChar(p.pool, string(char))
 	}
 
 	return password
@@ -190,12 +166,39 @@ func (p *Password) sanitize(password string) string {
 
 	// Shuffle the password in case it has common patterns until it doesn't
 repeat:
-	if regexp.MustCompile(commonPatterns).MatchString(password) {
+	if commonPatterns.MatchString(password) {
 		password = shuffle([]rune(password))
 		goto repeat
 	}
 
 	return password
+}
+
+func (p *Password) validateParams() error {
+	if p.Length < 1 {
+		return errors.New("invalid password length")
+	}
+
+	if len(p.Levels) == 0 {
+		return errors.New("no levels were specified")
+	}
+
+	if strings.ContainsAny(p.Include, p.Exclude) {
+		return errors.New("included characters cannot be excluded")
+	}
+
+	// Check if include contains 2/3 bytes characters
+	for _, incl := range p.Include {
+		if len(string(incl)) != 1 {
+			return fmt.Errorf("include contains invalid characters: %q", string(incl))
+		}
+	}
+
+	if len(p.Include) > int(p.Length) {
+		return errors.New("characters to include exceed the password length")
+	}
+
+	return p.validateLevels()
 }
 
 // validateLevels checks if Exclude contains all the characters of a level that is in Levels.
@@ -223,9 +226,9 @@ func (p *Password) validateLevels() error {
 			var lvlName string
 
 			switch lvl {
-			case Lowercase:
+			case Lower:
 				lvlName = "lowercase"
-			case Uppercase:
+			case Upper:
 				lvlName = "uppercase"
 			case Digit:
 				lvlName = "digit"

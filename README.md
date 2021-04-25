@@ -1,6 +1,5 @@
 # Atoll
 
-[![GoDoc](https://img.shields.io/static/v1?label=godoc&message=reference&color=blue)](https://godoc.org/github.com/GGP1/atoll)
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/GGP1/atoll)](https://pkg.go.dev/github.com/GGP1/atoll)
 [![Go Report Card](https://goreportcard.com/badge/github.com/GGP1/atoll)](https://goreportcard.com/report/github.com/GGP1/atoll)
 
@@ -13,7 +12,6 @@ Atoll is a library for generating cryptographically secure and highly random sec
 - No dependencies
 - Input validation
 - Secret sanitization
-    * Common patterns cleanup and space trimming
 - Include characters/words/syllables in random positions
 - Exclude any undesired character/word/syllable
 - **Password**:
@@ -42,34 +40,32 @@ import (
 )
 
 func main() {
-    // Generate a random password
     p := &atoll.Password{
         Length: 16,
-        Levels: []int{atoll.Lowercase, atoll.Uppercase, atoll.Digit},
-        Include: "á&1",
+        Levels: []int{atoll.Lower, atoll.Upper, atoll.Digit},
+        Include: "a&1",
         Repeat: true,
     }
-
     password, err := atoll.NewSecret(p)
     if err != nil {
         log.Fatal(err)
     }
 
     fmt.Println(password)
+    // 1VOKM7mNA6w&oIan
 
-    // Generate a random passphrase
-    p2 := &atoll.Passphrase{
+    p1 := &atoll.Passphrase{
         Length: 7,
         Separator: "/",
         List: atoll.NoList,
     }
-
-    passphrase, err := atoll.NewSecret(p2)
+    passphrase, err := atoll.NewSecret(p1)
     if err != nil {
         log.Fatal(err)
     }
 
     fmt.Println(passphrase)
+    // aei/jwyjidaasres/duii/rscfiotuuckm/ydsiacf/ora/yywu
 }
 ```
 
@@ -93,7 +89,7 @@ Atoll guarantees that the password will contain at least one of the characters o
 
 Atoll offers 3 ways of generating a passphrase:
 
-- **Without** a list (*NoList*): generate random numbers that determine the word length (between 3 and 12 letters) and if the letter is either a vowel or a constant (4/10 times a vowel is selected). Note that not using a list makes the potential attacker job harder.
+- **Without** a list (*NoList*): generates random numbers that determine the word length (between 3 and 12 letters) and if the letter is either a vowel or a constant. Note that not using a list makes the potential attacker job harder.
 
 - With a **Word** list (*WordList*): random words are taken from a 18,235 long word list.
     
@@ -129,19 +125,19 @@ In 2019 a record was set for a computer trying to generate every conceivable pas
 
 ## Benchmarks
 
-Specifications: 
+Specifications:
 * Operating system: windows.
 * Processor: Intel(R) Core(TM) i5-9400F CPU @ 2.90GHz, 2904 Mhz, 6 Core(s), 6 Logical Processor(s).
 * Installed RAM: 16GB.
 * Graphics card: GeForce GTX 1060 6GB.
 
 ```
-BenchmarkPassword                  	   41131	     28934 ns/op	   19172 B/op	     219 allocs/op
-BenchmarkNewPassword               	   41134	     28438 ns/op	   18291 B/op	     222 allocs/op
-BenchmarkNewPassphrase             	   43256	     27454 ns/op	    6400 B/op	     399 allocs/op
-BenchmarkPassphrase_NoList         	   42313	     27322 ns/op	    5589 B/op	     355 allocs/op
-BenchmarkPassphrase_WordList       	  398469	      3866 ns/op	     752 B/op	      45 allocs/op
-BenchmarkPassphrase_SyllableList   	  361910	      3714 ns/op	     736 B/op	      45 allocs/op
+BenchmarkPassword                     75937        16108 ns/op        4124 B/op       146 allocs/op
+BenchmarkNewPassword                  73328        16041 ns/op        3541 B/op       152 allocs/op
+BenchmarkNewPassphrase                44036        26635 ns/op        6406 B/op       399 allocs/op
+BenchmarkPassphrase_NoList            44032        26359 ns/op        5590 B/op       355 allocs/opp
+BenchmarkPassphrase_WordList       	  398469	   3866 ns/op	      752 B/op	      45 allocs/op
+BenchmarkPassphrase_SyllableList   	  361910	   3714 ns/op	      736 B/op	      45 allocs/op
 ```
 
 Take a look at them [here](/benchmark_test.go).

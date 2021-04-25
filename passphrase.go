@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	vowels    = [5]string{"a", "e", "i", "o", "u"}
-	constants = [21]string{"b", "c", "d", "f", "g", "h", "j", "k", "l", "m", "n",
+	vowels     = [5]string{"a", "e", "i", "o", "u"}
+	consonants = [21]string{"b", "c", "d", "f", "g", "h", "j", "k", "l", "m", "n",
 		"p", "q", "r", "s", "t", "v", "w", "x", "y", "z"}
 )
 
@@ -57,35 +57,12 @@ func (p *Passphrase) Generate() (string, error) {
 }
 
 func (p *Passphrase) generate() (string, error) {
-	if p.Length < 1 {
-		return "", errors.New("passphrase length must be equal to or higher than 1")
-	}
-
-	if len(p.Include) > int(p.Length) {
-		return "", errors.New("number of words to include exceed the password length")
-	}
-
-	// Look 2/3 bytes characters
-	if len(p.Separator) != len([]rune(p.Separator)) {
-		return "", fmt.Errorf("separator %q contains invalid characters", p.Separator)
-	}
-
-	for _, incl := range p.Include {
-		// Look for words contaning 2/3 bytes characters
-		if len(incl) != len([]rune(incl)) {
-			return "", fmt.Errorf("included word %q contains invalid characters", incl)
-		}
-
-		// Check for equality between included and excluded words
-		for _, excl := range p.Exclude {
-			if incl == excl {
-				return "", fmt.Errorf("word %q cannot be included and excluded", excl)
-			}
-		}
+	if err := p.validateParams(); err != nil {
+		return "", err
 	}
 
 	// Initialize secret slice
-	p.words = make([]string, int(p.Length))
+	p.words = make([]string, p.Length)
 	// Defaults
 	if p.Separator == "" {
 		p.Separator = " "
@@ -105,6 +82,37 @@ func (p *Passphrase) generate() (string, error) {
 	}
 
 	return strings.Join(p.words, p.Separator), nil
+}
+
+func (p *Passphrase) validateParams() error {
+	if p.Length < 1 {
+		return errors.New("passphrase length must be equal to or higher than 1")
+	}
+
+	if len(p.Include) > int(p.Length) {
+		return errors.New("number of words to include exceed the password length")
+	}
+
+	// Look for 2/3 bytes characters
+	if len(p.Separator) != len([]rune(p.Separator)) {
+		return fmt.Errorf("separator %q contains invalid characters", p.Separator)
+	}
+
+	for _, incl := range p.Include {
+		// Look for words contaning 2/3 bytes characters
+		if len(incl) != len([]rune(incl)) {
+			return fmt.Errorf("included word %q contains invalid characters", incl)
+		}
+
+		// Check for equality between included and excluded words
+		for _, excl := range p.Exclude {
+			if incl == excl {
+				return fmt.Errorf("word %q cannot be included and excluded", excl)
+			}
+		}
+	}
+
+	return nil
 }
 
 // includeWords randomly inserts included words in the passphrase.
@@ -144,12 +152,40 @@ func (p *Passphrase) excludeWords() {
 	}
 }
 
+// Entropy returns the passphrase entropy in bits.
+//
+// If the list used is "NoList" the secret must be already generated.
+func (p *Passphrase) Entropy() float64 {
+	var poolLength int
+
+	switch getFuncName(p.List) {
+	case "NoList":
+		if len(p.words) == 0 {
+			return 0
+		}
+
+		words := strings.Join(p.words, "")
+		// Take out the separators from the secret length
+		secretLength := len(words) - (len(p.Separator) * int(p.Length))
+		return math.Log2(math.Pow(float64(len(vowels)+len(consonants)), float64(secretLength)))
+	case "WordList":
+		poolLength = len(atollWords)
+	case "SyllableList":
+		poolLength = len(atollSyllables)
+	}
+
+	poolLength += len(p.Include) - len(p.Exclude)
+
+	// Separators aren't included in the secret length
+	return math.Log2(math.Pow(float64(poolLength), float64(p.Length)))
+}
+
 // NoList generates a random passphrase without using a list, making the potential attacker work harder.
 func NoList(p *Passphrase) {
 	var wg sync.WaitGroup
 	length := int(p.Length) - len(p.Include)
 
-	wg.Add(int(length))
+	wg.Add(length)
 	for i := 0; i < length; i++ {
 		go func(i int) {
 			p.words[i] = generateRandomWord()
@@ -177,38 +213,10 @@ func SyllableList(p *Passphrase) {
 	}
 }
 
-// Entropy returns the passphrase entropy in bits.
-//
-// If the list used is "NoList" the secret must be already generated.
-func (p *Passphrase) Entropy() float64 {
-	var poolLength int
-
-	switch getFuncName(p.List) {
-	case "NoList":
-		if len(p.words) == 0 {
-			return 0
-		}
-
-		words := strings.Join(p.words, "")
-		// Take out the separators from the secret length
-		secretLength := len(words) - (len(p.Separator) * int(p.Length))
-		return math.Log2(math.Pow(float64(len(vowels)+len(constants)), float64(secretLength)))
-	case "WordList":
-		poolLength = len(atollWords)
-	case "SyllableList":
-		poolLength = len(atollSyllables)
-	}
-
-	poolLength += len(p.Include) - len(p.Exclude)
-
-	// Separators aren't included in the secret length
-	return math.Log2(math.Pow(float64(poolLength), float64(p.Length)))
-}
-
 // generateRandomWord returns a random sword without using any list or dictionary.
 func generateRandomWord() string {
 	// Words length are randomly selected between 3 and 12 letters.
-	wordLength := randInt(10) + 3
+	wordLength := int(randInt(10)) + 3
 	syllables := make([]string, wordLength)
 
 	for i := 0; i < wordLength; i++ {
@@ -216,7 +224,7 @@ func generateRandomWord() string {
 		if randInt(11) <= 3 {
 			syllables[i] = vowels[randInt(len(vowels))]
 		} else {
-			syllables[i] = constants[randInt(len(constants))]
+			syllables[i] = consonants[randInt(len(consonants))]
 		}
 	}
 

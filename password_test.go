@@ -2,7 +2,6 @@ package atoll
 
 import (
 	"reflect"
-	"regexp"
 	"strings"
 	"testing"
 )
@@ -16,7 +15,7 @@ func TestPassword(t *testing.T) {
 			desc: "Test all",
 			p: &Password{
 				Length:  14,
-				Levels:  []Level{Lowercase, Uppercase, Digit, Space, Special},
+				Levels:  []Level{Lower, Upper, Digit, Space, Special},
 				Include: "kure ",
 				Exclude: "ad",
 				Repeat:  false,
@@ -26,7 +25,7 @@ func TestPassword(t *testing.T) {
 			desc: "Repeat",
 			p: &Password{
 				Length:  8,
-				Levels:  []Level{Lowercase, Space},
+				Levels:  []Level{Lower, Space},
 				Include: "bee",
 				Repeat:  true,
 			},
@@ -35,7 +34,7 @@ func TestPassword(t *testing.T) {
 			desc: "Length < levels",
 			p: &Password{
 				Length:  2,
-				Levels:  []Level{Lowercase, Digit, Space, Special},
+				Levels:  []Level{Lower, Digit, Space, Special},
 				Include: "!",
 			},
 		},
@@ -43,7 +42,7 @@ func TestPassword(t *testing.T) {
 			desc: "Verify levels",
 			p: &Password{
 				Length:  35,
-				Levels:  []Level{Lowercase, Uppercase, Digit, Space, Special},
+				Levels:  []Level{Lower, Upper, Digit, Space, Special},
 				Exclude: "0aT&7896a!45awq-=",
 				Repeat:  true,
 			},
@@ -110,7 +109,7 @@ func TestInvalidPassword(t *testing.T) {
 		"empty level":    {Length: 3, Levels: []Level{Level("")}},
 		"not enough characters to meet the length required": {
 			Length: 30,
-			Levels: []Level{Lowercase},
+			Levels: []Level{Lower},
 			Repeat: false,
 		},
 		"include characters also excluded": {
@@ -131,17 +130,17 @@ func TestInvalidPassword(t *testing.T) {
 		},
 		"lowercase level chars are excluded": {
 			Length:  26,
-			Levels:  []Level{Lowercase, Space},
-			Exclude: string(Lowercase),
+			Levels:  []Level{Lower, Space},
+			Exclude: string(Lower),
 		},
 		"uppercase level chars are excluded": {
 			Length:  26,
-			Levels:  []Level{Uppercase, Space},
-			Exclude: string(Uppercase),
+			Levels:  []Level{Upper, Space},
+			Exclude: string(Upper),
 		},
 		"digit level chars are excluded": {
 			Length:  10,
-			Levels:  []Level{Lowercase, Digit, Space},
+			Levels:  []Level{Lower, Digit, Space},
 			Exclude: string(Digit) + "aB",
 		},
 		"space level chars are excluded": {
@@ -170,7 +169,7 @@ func TestInvalidPassword(t *testing.T) {
 
 func TestNewPassword(t *testing.T) {
 	length := 15
-	password, err := NewPassword(uint64(length), []Level{Lowercase, Uppercase, Digit})
+	password, err := NewPassword(uint64(length), []Level{Lower, Upper, Digit})
 	if err != nil {
 		t.Fatalf("NewPassword() failed: %v", err)
 	}
@@ -189,7 +188,7 @@ func TestInvalidNewPassword(t *testing.T) {
 		length uint64
 		levels []Level
 	}{
-		"invalid length": {length: 0, levels: []Level{Lowercase}},
+		"invalid length": {length: 0, levels: []Level{Lower}},
 	}
 
 	for k, tc := range cases {
@@ -207,18 +206,18 @@ func TestGeneratePool(t *testing.T) {
 	}{
 		"All levels": {
 			fail:     false,
-			pool:     string(Lowercase + Uppercase + Digit + Space + Special),
-			password: &Password{Levels: []Level{Lowercase, Uppercase, Digit, Space, Special}, Exclude: "aA"},
+			pool:     string(Lower + Upper + Digit + Space + Special),
+			password: &Password{Levels: []Level{Lower, Upper, Digit, Space, Special}, Exclude: "aA"},
 		},
 		"Repeating levels": {
 			fail:     false,
-			pool:     string(Lowercase) + string(Digit),
-			password: &Password{Levels: []Level{Lowercase, Lowercase, Digit, Digit}},
+			pool:     string(Lower) + string(Digit),
+			password: &Password{Levels: []Level{Lower, Lower, Digit, Digit}},
 		},
 		"First three levels": {
 			fail:     true,
-			pool:     string(Lowercase) + string(Uppercase) + string(Digit),
-			password: &Password{Levels: []Level{Lowercase, Uppercase, Digit}, Exclude: "123"},
+			pool:     string(Lower) + string(Upper) + string(Digit),
+			password: &Password{Levels: []Level{Lower, Upper, Digit}, Exclude: "123"},
 		},
 	}
 
@@ -238,7 +237,7 @@ func TestGeneratePool(t *testing.T) {
 }
 
 func TestRandInsert(t *testing.T) {
-	p := &Password{Length: 13, Repeat: false}
+	p := &Password{Length: 13, Repeat: false, pool: "ab"}
 	char1 := 'a'
 	char2 := 'b'
 
@@ -258,12 +257,12 @@ func TestSanitize(t *testing.T) {
 	cases := []string{" trimSpacesX ", "admin123login"}
 
 	p := &Password{Length: 13}
-	p.pool = string(Lowercase) + string(Uppercase) + string(Digit)
+	p.pool = string(Lower) + string(Upper) + string(Digit)
 
 	for _, tc := range cases {
 		got := p.sanitize(tc)
 
-		if regexp.MustCompile(commonPatterns).MatchString(got) {
+		if commonPatterns.MatchString(got) {
 			t.Errorf("%q still contains common patterns", got)
 		}
 
@@ -287,7 +286,7 @@ func TestSanitize(t *testing.T) {
 func TestPasswordEntropy(t *testing.T) {
 	p := &Password{
 		Length:  20,
-		Levels:  []Level{Lowercase, Uppercase, Digit, Space, Special},
+		Levels:  []Level{Lower, Upper, Digit, Space, Special},
 		Exclude: "a1r/ö",
 	}
 	expected := 130.15589280397393

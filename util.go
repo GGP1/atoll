@@ -4,12 +4,17 @@ import (
 	"crypto/rand"
 	"math/big"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strings"
 )
 
-const commonPatterns string = `(?i)abc|123|qwerty|asdf|zxcv|1qaz|
-zaq1|qazwsx|pass|login|admin|master|!@#$|!234|!Q@W`
+var commonPatterns *regexp.Regexp
+
+func init() {
+	commonPatterns = regexp.MustCompile(`(?i)abc|123|qwerty|asdf|zxcv|1qaz|
+	zaq1|qazwsx|pass|login|admin|master|!@#$|!234|!Q@W`)
+}
 
 // getFuncName returns the name of the function passed.
 func getFuncName(f list) string {
@@ -21,11 +26,21 @@ func getFuncName(f list) string {
 }
 
 // randInt returns a cryptographically secure random integer in [0, max).
-func randInt(max int) int {
-	// The error is skipped as max is always len(something).
+func randInt(max int) int64 {
+	// The error is skipped as max is always > 0.
 	randN, _ := rand.Int(rand.Reader, big.NewInt(int64(max)))
 
-	return int(randN.Int64())
+	return randN.Int64()
+}
+
+// removeChar returns pool without char, if it's not present it returns pool unchanged.
+func removeChar(pool, char string) string {
+	idx := strings.Index(pool, char)
+	if idx == -1 {
+		return pool
+	}
+
+	return pool[:idx] + pool[idx+1:]
 }
 
 // shuffle changes randomly the order of the password elements.

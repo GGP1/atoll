@@ -194,7 +194,7 @@ func TestPassphraseEntropyNoSecret(t *testing.T) {
 		Separator: "/",
 	}
 
-	var expected float64 = 0
+	var expected float64
 	got := p.Entropy()
 	if got != expected {
 		t.Errorf("Expected %f, got %f", expected, got)

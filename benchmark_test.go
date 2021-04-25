@@ -4,7 +4,7 @@ import "testing"
 
 var password = &Password{
 	Length:  15,
-	Levels:  []Level{Lowercase, Uppercase, Digit, Space, Special},
+	Levels:  []Level{Lower, Upper, Digit, Space, Special},
 	Include: "bench",
 	Exclude: "mark1234T=%",
 	Repeat:  false,

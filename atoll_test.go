@@ -14,7 +14,7 @@ func TestNewSecret(t *testing.T) {
 			desc: "Password",
 			secret: &Password{
 				Length:  15,
-				Levels:  []Level{Lowercase, Uppercase, Digit, Space, Special},
+				Levels:  []Level{Lower, Upper, Digit, Space, Special},
 				Include: "=",
 				Exclude: "?",
 				Repeat:  false,
@@ -50,7 +50,7 @@ func TestKeyspace(t *testing.T) {
 			desc: "Password",
 			secret: &Password{
 				Length: 13,
-				Levels: []Level{Lowercase, Uppercase, Digit},
+				Levels: []Level{Lower, Upper, Digit},
 			},
 		},
 		{
@@ -83,7 +83,7 @@ func TestSecondsToCrack(t *testing.T) {
 			desc: "Password",
 			secret: &Password{
 				Length: 26,
-				Levels: []Level{Lowercase, Uppercase},
+				Levels: []Level{Lower, Upper},
 			},
 		},
 		{

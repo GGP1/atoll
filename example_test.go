@@ -10,7 +10,7 @@ import (
 func ExamplePassword() {
 	p := &atoll.Password{
 		Length:  22,
-		Levels:  []atoll.Level{atoll.Lowercase, atoll.Uppercase, atoll.Special},
+		Levels:  []atoll.Level{atoll.Lower, atoll.Upper, atoll.Special},
 		Include: "1+=g ",
 		Exclude: "&r/ty",
 		Repeat:  false,
@@ -27,7 +27,7 @@ func ExamplePassword() {
 }
 
 func ExampleNewPassword() {
-	password, err := atoll.NewPassword(16, []atoll.Level{atoll.Digit, atoll.Lowercase})
+	password, err := atoll.NewPassword(16, []atoll.Level{atoll.Digit, atoll.Lower})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func ExampleNewPassphrase() {
 func ExampleKeyspace() {
 	p := &atoll.Password{
 		Length: 6,
-		Levels: []atoll.Level{atoll.Lowercase},
+		Levels: []atoll.Level{atoll.Lower},
 		Repeat: false,
 	}
 

@@ -21,8 +21,27 @@ func TestGetFuncName(t *testing.T) {
 	}
 }
 
+func TestRemoveChar(t *testing.T) {
+	t.Run("Present", func(t *testing.T) {
+		pool := "12345a6789"
+		expected := "123456789"
+		got := removeChar(pool, "a")
+		if got != expected {
+			t.Errorf("Expected %q, got %q", expected, got)
+		}
+	})
+
+	t.Run("Not present", func(t *testing.T) {
+		pool := "abcdefgh"
+		got := removeChar(pool, "1")
+		if got != pool {
+			t.Errorf("Expected %q, got %q", pool, got)
+		}
+	})
+}
+
 func TestShuffle(t *testing.T) {
-	var p string = "%A$Ks#a0t14|&23"
+	var p = "%A$Ks#a0t14|&23"
 	password := []rune(p)
 
 	shuffle(password)
