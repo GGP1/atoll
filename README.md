@@ -99,7 +99,7 @@ Atoll offers 3 ways of generating a passphrase:
 
 > Randomness is a measure of the observer's ignorance, not an inherent quality of a process.
 
-Atoll uses the "crypto/rand" package to generate **cryptographically secure** random numbers, which "select" the characters-words-syllables from different pools as well as the indices when generating a password.
+Atoll uses the "crypto/rand" package to generate **cryptographically secure** random numbers.
 
 ### Entropy
 
@@ -135,9 +135,9 @@ Specifications:
 BenchmarkPassword                     75937        16108 ns/op        4124 B/op       146 allocs/op
 BenchmarkNewPassword                  73328        16041 ns/op        3541 B/op       152 allocs/op
 BenchmarkNewPassphrase                44036        26635 ns/op        6406 B/op       399 allocs/op
-BenchmarkPassphrase_NoList            44032        26359 ns/op        5590 B/op       355 allocs/opp
-BenchmarkPassphrase_WordList       	  398469	   3866 ns/op	      752 B/op	      45 allocs/op
-BenchmarkPassphrase_SyllableList   	  361910	   3714 ns/op	      736 B/op	      45 allocs/op
+BenchmarkPassphrase_NoList            44032        26359 ns/op        5590 B/op       355 allocs/op
+BenchmarkPassphrase_WordList       	  398469	      3866 ns/op	       752 B/op	      45 allocs/op
+BenchmarkPassphrase_SyllableList   	  361910	      3714 ns/op	       736 B/op	      45 allocs/op
 ```
 
 Take a look at them [here](/benchmark_test.go).
