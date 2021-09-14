@@ -74,13 +74,13 @@ func TestPassword(t *testing.T) {
 
 			for _, inc := range tc.p.Include {
 				// Skip space as we cannot guarantee that it won't be at the start or end of the password
-				if !strings.Contains(password, string(inc)) && inc != ' ' {
+				if !strings.ContainsRune(password, inc) && inc != ' ' {
 					t.Errorf("Character %q is not included", inc)
 				}
 			}
 
 			for _, exc := range tc.p.Exclude {
-				if strings.Contains(password, string(exc)) {
+				if strings.ContainsRune(password, exc) {
 					t.Errorf("Found undesired character: %q", exc)
 				}
 			}

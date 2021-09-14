@@ -92,7 +92,7 @@ func (p *Password) buildPassword() string {
 
 			// If the pool does not contain the character selected it's because
 			// it was either excluded or already used
-			if !strings.Contains(p.pool, string(char)) {
+			if !strings.ContainsRune(p.pool, rune(char)) {
 				if lvl == Space {
 					continue
 				}
@@ -113,25 +113,25 @@ func (p *Password) buildPassword() string {
 }
 
 func (p *Password) generatePool() {
-	var sb strings.Builder
+	buf := getBuf()
 	unique := make(map[Level]struct{})
 
 	for _, lvl := range p.Levels {
 		// Ensure that duplicated levels aren't added twice
 		if _, ok := unique[lvl]; !ok {
 			unique[lvl] = struct{}{}
-			sb.Grow(len(lvl))
-			sb.WriteString(string(lvl))
+			buf.Grow(len(lvl))
+			buf.WriteString(string(lvl))
 		}
 	}
 
-	p.pool = sb.String()
+	p.pool = buf.String()
+	putBuf(buf)
 
-	if p.Exclude != "" {
-		// Remove excluded characters from the pool
-		exclChars := strings.Split(p.Exclude, "")
-		for _, c := range exclChars {
-			p.pool = removeChar(p.pool, c)
+	// Remove excluded characters from the pool
+	for _, c := range p.Exclude {
+		if idx := strings.IndexRune(p.pool, c); idx != -1 {
+			p.pool = p.pool[:idx] + p.pool[idx+1:]
 		}
 	}
 }
@@ -140,11 +140,14 @@ func (p *Password) generatePool() {
 // case p.Repeat is set to false.
 func (p *Password) randInsert(password string, char byte) string {
 	i := randInt(len(password) + 1)
-	password = password[:i] + string(char) + password[i:]
+	charStr := string(char)
+	password = password[:i] + charStr + password[i:]
 
 	if !p.Repeat {
 		// Remove character used
-		p.pool = removeChar(p.pool, string(char))
+		if idx := strings.Index(p.pool, charStr); idx != -1 {
+			p.pool = p.pool[:idx] + p.pool[idx+1:]
+		}
 	}
 
 	return password
@@ -189,8 +192,8 @@ func (p *Password) validateParams() error {
 
 	// Check if include contains 2/3 bytes characters
 	for _, incl := range p.Include {
-		if len(string(incl)) != 1 {
-			return fmt.Errorf("include contains invalid characters: %q", string(incl))
+		if incl > 127 {
+			return fmt.Errorf("include contains invalid characters: %q", incl)
 		}
 	}
 
@@ -213,7 +216,7 @@ func (p *Password) validateLevels() error {
 
 		counter := 0
 		for _, excl := range p.Exclude {
-			if strings.Contains(string(lvl), string(excl)) {
+			if strings.ContainsRune(string(lvl), excl) {
 				counter++
 				// Stop counting if the character is a space (as it's only one)
 				if lvl == Space {
@@ -249,8 +252,24 @@ func (p *Password) validateLevels() error {
 
 // Entropy returns the password entropy in bits.
 func (p *Password) Entropy() float64 {
-	p.generatePool()
-	poolLength := len(p.pool)
+	var poolLength int
+	unique := make(map[Level]struct{})
+
+	for _, lvl := range p.Levels {
+		if _, ok := unique[lvl]; !ok {
+			unique[lvl] = struct{}{}
+			poolLength += len(lvl)
+		}
+	}
+	if p.Exclude != "" {
+		for k := range unique {
+			for _, c := range p.Exclude {
+				if strings.ContainsRune(string(k), c) {
+					poolLength--
+				}
+			}
+		}
+	}
 	poolLength += len(p.Include)
 	return math.Log2(math.Pow(float64(poolLength), float64(p.Length)))
 }

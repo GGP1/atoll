@@ -1,10 +1,25 @@
 package atoll
 
-import "testing"
+import (
+	"testing"
+)
+
+func TestBufferPool(t *testing.T) {
+	text := "bufferpool test"
+	buf := getBuf()
+	buf.WriteString(text)
+	if buf.String() != text {
+		t.Error("The buffer contains erroneous text")
+	}
+	putBuf(buf)
+	if buf.Len() != 0 {
+		t.Error("The buffer is not empty")
+	}
+}
 
 func TestGetFuncName(t *testing.T) {
 	cases := []struct {
-		List     func(*Passphrase)
+		List     func(p *Passphrase, length int)
 		Expected string
 	}{
 		{List: NoList, Expected: "NoList"},
@@ -19,25 +34,6 @@ func TestGetFuncName(t *testing.T) {
 			t.Errorf("Expected %q, got %q", tc.Expected, got)
 		}
 	}
-}
-
-func TestRemoveChar(t *testing.T) {
-	t.Run("Present", func(t *testing.T) {
-		pool := "12345a6789"
-		expected := "123456789"
-		got := removeChar(pool, "a")
-		if got != expected {
-			t.Errorf("Expected %q, got %q", expected, got)
-		}
-	})
-
-	t.Run("Not present", func(t *testing.T) {
-		pool := "abcdefgh"
-		got := removeChar(pool, "1")
-		if got != pool {
-			t.Errorf("Expected %q, got %q", pool, got)
-		}
-	})
 }
 
 func TestShuffle(t *testing.T) {

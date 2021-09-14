@@ -125,19 +125,13 @@ In 2019 a record was set for a computer trying to generate every conceivable pas
 
 ## Benchmarks
 
-Specifications:
-* Operating system: windows.
-* Processor: Intel(R) Core(TM) i5-9400F CPU @ 2.90GHz, 2904 Mhz, 6 Core(s), 6 Logical Processor(s).
-* Installed RAM: 16GB.
-* Graphics card: GeForce GTX 1060 6GB.
-
 ```
-BenchmarkPassword                     75937        16108 ns/op        4124 B/op       146 allocs/op
-BenchmarkNewPassword                  73328        16041 ns/op        3541 B/op       152 allocs/op
-BenchmarkNewPassphrase                44036        26635 ns/op        6406 B/op       399 allocs/op
-BenchmarkPassphrase_NoList            44032        26359 ns/op        5590 B/op       355 allocs/opp
-BenchmarkPassphrase_WordList       	  398469	   3866 ns/op	      752 B/op	      45 allocs/op
-BenchmarkPassphrase_SyllableList   	  361910	   3714 ns/op	      736 B/op	      45 allocs/op
+BenchmarkPassword-6                  	   81109	     14708 ns/op	    3734 B/op	     143 allocs/op
+BenchmarkNewPassword-6               	   82390	     14502 ns/op	    3329 B/op	     150 allocs/op
+BenchmarkNewPassphrase-6             	   38400	     31080 ns/op	    5671 B/op	     392 allocs/op
+BenchmarkPassphrase_NoList-6         	   43736	     27586 ns/op	    4991 B/op	     350 allocs/op
+BenchmarkPassphrase_WordList-6       	  335258	      3634 ns/op	     752 B/op	      45 allocs/op
+BenchmarkPassphrase_SyllableList-6   	  352632	      3537 ns/op	     736 B/op	      45 allocs/op
 ```
 
 Take a look at them [here](/benchmark_test.go).
