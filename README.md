@@ -75,9 +75,7 @@ Head over [example_test.go](/example_test.go) to see more examples.
 
 ### Password levels
 
-Atoll guarantees that the password will contain at least one of the characters of each level selected (except Space¹), only if the length of the password is higher than the number of levels.
-
-¹ If the level *Space* is used or the user includes a *space* it isn't 100% sure that the space will be part of the secret, as it could be at the end or the start of the password and it would be deleted and replaced by the sanitizer.
+Atoll guarantees that the password will contain at least one of the characters of each level selected (except Space<sup>[1](#one)</sup>), only if the length of the password is higher than the number of levels.
 
 1. Lowecases (a, b, c...)
 2. Uppercases (A, B, C...)
@@ -89,7 +87,7 @@ Atoll guarantees that the password will contain at least one of the characters o
 
 Atoll offers 3 ways of generating a passphrase:
 
-- **Without** a list (*NoList*): generates random numbers that determine the word length (between 3 and 12 letters) and if the letter is either a vowel or a constant. Note that not using a list makes the potential attacker job harder.
+- **Without** a list (*NoList*): generates random numbers that determine the word length (between 3 and 12 letters) and if the letter is either a vowel or a constant. Note that using a list makes the potential attacker job harder.
 
 - With a **Word** list (*WordList*): random words are taken from a 18,235 long word list.
     
@@ -99,7 +97,7 @@ Atoll offers 3 ways of generating a passphrase:
 
 > Randomness is a measure of the observer's ignorance, not an inherent quality of a process.
 
-Atoll uses the "crypto/rand" package to generate **cryptographically secure** random numbers, which "select" the characters-words-syllables from different pools as well as the indices when generating a password.
+Atoll uses the "crypto/rand" package to generate **cryptographically secure** random numbers.
 
 ### Entropy
 
@@ -119,9 +117,13 @@ Keyspace is the set of all possible permutations of a key. On average, half the 
 
 > When calculating the seconds to crack the secret what is considered is a brute force attack. Dictionary and social engineering attacks (like shoulder surfing. pretexting, etc) are left out of consideration.
 
-The time taken in seconds by a brute force attack to crack a secret is calculated by doing `keyspace / guessesPerSecond` where the guesses per second is 1 trillon, this is the number Edward Snowden said we should be prepared for and might be changed in the future.
+The time taken in seconds by a brute force attack to crack a secret is calculated by doing `keyspace / guessesPerSecond` where the guesses per second is 1 trillon<sup>[2](#two)</sup>.
 
 In 2019 a record was set for a computer trying to generate every conceivable password. It achieved a rate faster than 100 billion guesses per second.
+
+<a name="one">1</a>: If the level *Space* is used or the user includes a *space* it isn't 100% guaranteed that the space will be part of the secret, as it could be at the end or the start of the password and it would be deleted and replaced by the sanitizer.
+
+<a name="two">2</a>: This value may be changed in the future.
 
 ## Benchmarks
 
