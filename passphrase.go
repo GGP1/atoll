@@ -16,22 +16,17 @@ var (
 
 // Passphrase represents a sequence of words/syllables with a separator between them.
 type Passphrase struct {
-	words []string
-
-	// Number of words in the passphrase.
-	Length uint64
-
-	// Words separator.
-	Separator string
-
 	// List used to generate the passphrase.
 	List list
-
+	// Words separator.
+	Separator string
+	words     []string
 	// Words that will be part of the passphrase.
 	Include []string
-
 	// Words that won't be part of the passphrase.
 	Exclude []string
+	// Number of words in the passphrase.
+	Length uint64
 }
 
 type list func(p *Passphrase, length int)

@@ -23,18 +23,14 @@ type Level string
 type Password struct {
 	pool string
 
-	// Password length.
-	Length uint64
-
-	// Group of characters used to generate the pool.
-	Levels []Level
-
 	// Characters that will be part of the password.
 	Include string
-
 	// Characters that won't be part of the password.
 	Exclude string
-
+	// Group of characters used to generate the pool.
+	Levels []Level
+	// Password length.
+	Length uint64
 	// Character repetition.
 	Repeat bool
 }
