@@ -11,12 +11,8 @@ import (
 	"sync"
 )
 
-var commonPatterns *regexp.Regexp
-
-func init() {
-	commonPatterns = regexp.MustCompile(`(?i)abc|123|qwerty|asdf|zxcv|1qaz|
-	zaq1|qazwsx|pass|login|admin|master|!@#$|!234|!Q@W`)
-}
+var commonPatterns = regexp.MustCompile(`(?i)abc|123|qwerty|asdf|zxcv|1qaz|
+zaq1|qazwsx|pass|login|admin|master|!@#$|!234|!Q@W`)
 
 var pool = &sync.Pool{
 	New: func() interface{} {
