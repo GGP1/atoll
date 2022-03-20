@@ -49,7 +49,7 @@ func NewPassword(length uint64, levels []Level) (string, error) {
 func (p *Password) Generate() (string, error) {
 	password, err := p.generate()
 	if err != nil {
-		return "", fmt.Errorf("atoll: %v", err)
+		return "", fmt.Errorf("atoll: %w", err)
 	}
 
 	return password, nil
