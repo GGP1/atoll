@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"runtime"
 	"strings"
 )
 
@@ -69,7 +70,12 @@ func (p *Password) generate() ([]byte, error) {
 
 	password := p.buildPassword()
 	password = p.sanitize(password)
-
+	// Wipe sensitive data
+	for i := range p.pool {
+		p.pool[i] = 0
+	}
+	// Keep buf alive so preceding loop is not optimized out
+	runtime.KeepAlive(p.pool)
 	return password, nil
 }
 

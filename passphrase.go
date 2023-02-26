@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"runtime"
 	"unicode/utf8"
 )
 
@@ -87,7 +88,16 @@ func (p *Passphrase) generate() ([]byte, error) {
 		p.excludeWords()
 	}
 
-	return bytes.Join(p.words, []byte(p.Separator)), nil
+	passphrase := bytes.Join(p.words, []byte(p.Separator))
+	// Wipe sensitive data
+	for i := range p.words {
+		for j := range p.words[i] {
+			p.words[i][j] = 0
+		}
+	}
+	// Keep buf alive so preceding loop is not optimized out
+	runtime.KeepAlive(p.words)
+	return passphrase, nil
 }
 
 func (p *Passphrase) validateParams() error {
