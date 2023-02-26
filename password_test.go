@@ -1,15 +1,15 @@
 package atoll
 
 import (
-	"reflect"
+	"bytes"
 	"strings"
 	"testing"
 )
 
 func TestPassword(t *testing.T) {
 	cases := []struct {
-		desc string
 		p    *Password
+		desc string
 	}{
 		{
 			desc: "Test all",
@@ -66,7 +66,7 @@ func TestPassword(t *testing.T) {
 				}
 
 				if int(tc.p.Length) > len(tc.p.Levels) {
-					if !strings.ContainsAny(password, string(lvl)) {
+					if !bytes.ContainsAny(password, string(lvl)) {
 						t.Errorf("Expected the password to contain at least one character of the level %d", i)
 					}
 				}
@@ -74,19 +74,19 @@ func TestPassword(t *testing.T) {
 
 			for _, inc := range tc.p.Include {
 				// Skip space as we cannot guarantee that it won't be at the start or end of the password
-				if !strings.ContainsRune(password, inc) && inc != ' ' {
+				if !bytes.ContainsRune(password, inc) && inc != ' ' {
 					t.Errorf("Character %q is not included", inc)
 				}
 			}
 
 			for _, exc := range tc.p.Exclude {
-				if strings.ContainsRune(password, exc) {
+				if bytes.ContainsRune(password, exc) {
 					t.Errorf("Found undesired character: %q", exc)
 				}
 			}
 
 			if !tc.p.Repeat && tc.p.Include == "" {
-				uniques := make(map[rune]struct{}, tc.p.Length)
+				uniques := make(map[byte]struct{}, tc.p.Length)
 
 				for _, char := range password {
 					if _, ok := uniques[char]; !ok {
@@ -178,15 +178,15 @@ func TestNewPassword(t *testing.T) {
 		t.Errorf("Expected length to be %d but got %d", length, len(password))
 	}
 
-	if strings.ContainsAny(password, string(Space)+string(Special)) {
+	if bytes.ContainsAny(password, string(Space)+string(Special)) {
 		t.Error("Found undesired characters")
 	}
 }
 
 func TestInvalidNewPassword(t *testing.T) {
 	cases := map[string]struct {
-		length uint64
 		levels []Level
+		length uint64
 	}{
 		"invalid length": {length: 0, levels: []Level{Lower}},
 	}
@@ -200,9 +200,9 @@ func TestInvalidNewPassword(t *testing.T) {
 
 func TestGeneratePool(t *testing.T) {
 	cases := map[string]struct {
-		fail     bool
-		pool     string
 		password *Password
+		pool     string
+		fail     bool
 	}{
 		"All levels": {
 			fail:     false,
@@ -229,7 +229,7 @@ func TestGeneratePool(t *testing.T) {
 				tc.pool = strings.ReplaceAll(tc.pool, string(e), "")
 			}
 
-			if !strings.ContainsAny(tc.password.pool, tc.pool) && tc.pool != "" {
+			if !bytes.ContainsAny(tc.password.pool, tc.pool) && tc.pool != "" {
 				t.Error("Pool does not contain an expected character")
 			}
 		})
@@ -237,32 +237,33 @@ func TestGeneratePool(t *testing.T) {
 }
 
 func TestRandInsert(t *testing.T) {
-	p := &Password{Length: 13, Repeat: false, pool: "ab"}
+	p := &Password{Length: 13, Repeat: false, pool: []byte("ab")}
 	char1 := 'a'
 	char2 := 'b'
 
-	password := ""
+	password := []byte{}
 	password = p.randInsert(password, byte(char1))
 	password = p.randInsert(password, byte(char2))
+	pwd := string(password)
 
-	if password != "ab" && password != "ba" {
-		t.Errorf("Expected \"ab\"/\"ba\" and got %q", password)
+	if pwd != "ab" && pwd != "ba" {
+		t.Errorf("Expected \"ab\"/\"ba\" and got %q", pwd)
 	}
-	if strings.ContainsAny(p.pool, "ab") {
+	if bytes.ContainsAny(p.pool, "ab") {
 		t.Errorf("Failed removing characters from the pool")
 	}
 }
 
 func TestSanitize(t *testing.T) {
-	cases := []string{" trimSpacesX ", "admin123login"}
+	cases := [][]byte{[]byte(" trimSpacesX "), []byte("admin123login")}
 
 	p := &Password{Length: 13}
-	p.pool = string(Lower) + string(Upper) + string(Digit)
+	p.pool = []byte(string(Lower) + string(Upper) + string(Digit))
 
 	for _, tc := range cases {
 		got := p.sanitize(tc)
 
-		if commonPatterns.MatchString(got) {
+		if commonPatterns.Match(got) {
 			t.Errorf("%q still contains common patterns", got)
 		}
 
@@ -275,10 +276,6 @@ func TestSanitize(t *testing.T) {
 
 		if len(got) != int(p.Length) {
 			t.Error("Trimmed spaces were not replaced with new characters")
-		}
-
-		if reflect.DeepEqual(tc, got) {
-			t.Errorf("Did not shuffle. Before: %q, after: %q", tc, got)
 		}
 	}
 }

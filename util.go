@@ -44,16 +44,15 @@ func getFuncName(f list) string {
 func randInt(max int) int64 {
 	// The error is skipped as max is always > 0.
 	randN, _ := rand.Int(rand.Reader, big.NewInt(int64(max)))
-
 	return randN.Int64()
 }
 
 // shuffle changes randomly the order of the password elements.
-func shuffle(key []rune) string {
+func shuffle(key []byte) []byte {
 	for i := range key {
 		j := randInt(i + 1)
 		key[i], key[j] = key[j], key[i]
 	}
 
-	return string(key)
+	return key
 }

@@ -1,3 +1,3 @@
 module github.com/GGP1/atoll
 
-go 1.16
+go 1.20

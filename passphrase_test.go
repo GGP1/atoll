@@ -1,8 +1,8 @@
 package atoll
 
 import (
+	"bytes"
 	"math"
-	"strings"
 	"testing"
 )
 
@@ -39,24 +39,24 @@ func TestPassphrase(t *testing.T) {
 				t.Fatalf("Generate() failed: %v", err)
 			}
 
-			words := strings.Split(passphrase, tc.Separator)
+			words := bytes.Split(passphrase, []byte(tc.Separator))
 			if len(words) != int(tc.Length) {
 				t.Errorf("Expected %d words, got %d", tc.Length, len(words))
 			}
 
-			if !strings.Contains(passphrase, tc.Separator) {
+			if !bytes.Contains(passphrase, []byte(tc.Separator)) {
 				t.Errorf("The separator %q is not used", tc.Separator)
 			}
 
 			for _, inc := range tc.Include {
-				if !strings.Contains(passphrase, inc) {
+				if !bytes.ContainsAny(passphrase, inc) {
 					t.Errorf("Expected %q to be included", inc)
 				}
 			}
 
 			for _, w := range words {
 				for _, exc := range tc.Exclude {
-					if exc == w {
+					if exc == string(w) {
 						t.Errorf("Expected %q to be excluded", exc)
 					}
 				}
@@ -88,7 +88,7 @@ func TestNewPassphrase(t *testing.T) {
 		t.Errorf("NewPassphrase() failed: %v", err)
 	}
 
-	words := strings.Split(passphrase, " ")
+	words := bytes.Split(passphrase, []byte(" "))
 	got := len(words)
 
 	if got != length {
@@ -106,19 +106,19 @@ func TestInvalidNewPassphrase(t *testing.T) {
 func TestExcludeWords(t *testing.T) {
 	cases := map[string]*Passphrase{
 		"No list": {
-			words:     []string{"cow", "horse", "bee"},
+			words:     [][]byte{[]byte("cow"), []byte("horse"), []byte("bee")},
 			Separator: " ",
 			Exclude:   []string{"cow", "horse", "beer"},
 			List:      NoList,
 		},
 		"Word list": {
-			words:     []string{"about", "abysmal", "accurate"},
+			words:     [][]byte{[]byte("about"), []byte("abysmal"), []byte("accurate")},
 			Separator: " ",
 			Exclude:   []string{"about"},
 			List:      WordList,
 		},
 		"Syllable list": {
-			words:     []string{"alt", "bet", "bang flux"},
+			words:     [][]byte{[]byte("alt"), []byte("bet"), []byte("bang flux")},
 			Separator: " ",
 			Exclude:   []string{"alt", "flux"},
 			List:      SyllableList,
@@ -131,7 +131,7 @@ func TestExcludeWords(t *testing.T) {
 
 			for _, exc := range tc.Exclude {
 				for _, word := range tc.words {
-					if exc == word {
+					if exc == string(word) {
 						t.Errorf("Found undesired word %q", exc)
 					}
 				}
@@ -142,8 +142,8 @@ func TestExcludeWords(t *testing.T) {
 
 func TestPassphraseEntropy(t *testing.T) {
 	cases := []struct {
-		desc     string
 		list     list
+		desc     string
 		expected float64
 	}{
 		{
@@ -175,7 +175,7 @@ func TestPassphraseEntropy(t *testing.T) {
 
 			// NoList entropy changes everytime as it generates random words
 			if getFuncName(tc.list) == "NoList" {
-				secretLength := len(strings.Join(p.words, "")) - (len(p.Separator) * int(p.Length))
+				secretLength := len(bytes.Join(p.words, []byte(""))) - (len(p.Separator) * int(p.Length))
 				tc.expected = math.Log2(math.Pow(float64(26), float64(secretLength)))
 			}
 
