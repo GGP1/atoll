@@ -7,8 +7,8 @@ import (
 
 func TestNewSecret(t *testing.T) {
 	cases := []struct {
-		desc   string
 		secret Secret
+		desc   string
 	}{
 		{
 			desc: "Password",
@@ -43,8 +43,8 @@ func TestNewSecret(t *testing.T) {
 
 func TestKeyspace(t *testing.T) {
 	cases := []struct {
-		desc   string
 		secret Secret
+		desc   string
 	}{
 		{
 			desc: "Password",
@@ -76,8 +76,8 @@ func TestKeyspace(t *testing.T) {
 
 func TestSecondsToCrack(t *testing.T) {
 	cases := []struct {
-		desc   string
 		secret Secret
+		desc   string
 	}{
 		{
 			desc: "Password",

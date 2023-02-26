@@ -37,12 +37,12 @@ func TestGetFuncName(t *testing.T) {
 }
 
 func TestShuffle(t *testing.T) {
-	var p = "%A$Ks#a0t14|&23"
-	password := []rune(p)
+	p := "%A$Ks#a0t14|&23"
+	password := []byte(p)
 
 	shuffle(password)
 
 	if p == string(password) {
-		t.Errorf("Expected something different, got: %s", string(password))
+		t.Errorf("Expected something different, got: %s", password)
 	}
 }

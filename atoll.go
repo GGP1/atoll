@@ -9,12 +9,12 @@ const guessesPerSecond = 1000000000000
 
 // Secret is the interface that wraps the basic methods Generate and Entropy.
 type Secret interface {
-	Generate() (string, error)
+	Generate() ([]byte, error)
 	Entropy() float64
 }
 
 // NewSecret generates a new secret.
-func NewSecret(secret Secret) (string, error) {
+func NewSecret(secret Secret) ([]byte, error) {
 	return secret.Generate()
 }
 

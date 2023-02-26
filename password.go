@@ -1,6 +1,7 @@
 package atoll
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
@@ -21,7 +22,7 @@ type Level string
 
 // Password represents a sequence of characters required for access to a computer system.
 type Password struct {
-	pool string
+	pool []byte
 
 	// Characters that will be part of the password.
 	Include string
@@ -36,7 +37,7 @@ type Password struct {
 }
 
 // NewPassword returns a random password.
-func NewPassword(length uint64, levels []Level) (string, error) {
+func NewPassword(length uint64, levels []Level) ([]byte, error) {
 	p := &Password{
 		Length: length,
 		Levels: levels,
@@ -46,24 +47,24 @@ func NewPassword(length uint64, levels []Level) (string, error) {
 }
 
 // Generate generates a random password.
-func (p *Password) Generate() (string, error) {
+func (p *Password) Generate() ([]byte, error) {
 	password, err := p.generate()
 	if err != nil {
-		return "", fmt.Errorf("atoll: %w", err)
+		return nil, fmt.Errorf("atoll: %w", err)
 	}
 
 	return password, nil
 }
 
-func (p *Password) generate() (string, error) {
+func (p *Password) generate() ([]byte, error) {
 	if err := p.validateParams(); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	p.generatePool()
 
 	if !p.Repeat && int(p.Length) > (len(p.pool)+len(p.Include)) {
-		return "", errors.New("password length is higher than the pool and repetition is turned off")
+		return nil, errors.New("password length is higher than the pool and repetition is turned off")
 	}
 
 	password := p.buildPassword()
@@ -73,8 +74,8 @@ func (p *Password) generate() (string, error) {
 }
 
 // buildPassword creates the password.
-func (p *Password) buildPassword() string {
-	var password string
+func (p *Password) buildPassword() []byte {
+	var password []byte
 	// Add included characters
 	for _, c := range p.Include {
 		password = p.randInsert(password, byte(c))
@@ -88,7 +89,7 @@ func (p *Password) buildPassword() string {
 
 			// If the pool does not contain the character selected it's because
 			// it was either excluded or already used
-			if !strings.ContainsRune(p.pool, rune(char)) {
+			if bytes.IndexByte(p.pool, char) == -1 {
 				if lvl == Space {
 					continue
 				}
@@ -121,28 +122,32 @@ func (p *Password) generatePool() {
 		}
 	}
 
-	p.pool = buf.String()
+	p.pool = buf.Bytes()
 	putBuf(buf)
 
 	// Remove excluded characters from the pool
 	for _, c := range p.Exclude {
-		if idx := strings.IndexRune(p.pool, c); idx != -1 {
-			p.pool = p.pool[:idx] + p.pool[idx+1:]
+		if idx := bytes.IndexRune(p.pool, c); idx != -1 {
+			p.pool = append(p.pool[:idx], p.pool[idx+1:]...)
 		}
 	}
 }
 
 // randInsert returns password with char inserted in a random position and removes char from pool in
 // case p.Repeat is set to false.
-func (p *Password) randInsert(password string, char byte) string {
+func (p *Password) randInsert(password []byte, char byte) []byte {
 	i := randInt(len(password) + 1)
-	charStr := string(char)
-	password = password[:i] + charStr + password[i:]
+	if int(i) == len(password) {
+		password = append(password, char)
+	} else {
+		password = append(password[:i+1], password[i:]...)
+		password[i] = char
+	}
 
 	if !p.Repeat {
 		// Remove character used
-		if idx := strings.Index(p.pool, charStr); idx != -1 {
-			p.pool = p.pool[:idx] + p.pool[idx+1:]
+		if idx := bytes.IndexByte(p.pool, char); idx != -1 {
+			p.pool = append(p.pool[:idx], p.pool[idx+1:]...)
 		}
 	}
 
@@ -150,8 +155,8 @@ func (p *Password) randInsert(password string, char byte) string {
 }
 
 // sanitize clears common patterns and removes leading and trailing spaces.
-func (p *Password) sanitize(password string) string {
-	password = strings.TrimSpace(password)
+func (p *Password) sanitize(password []byte) []byte {
+	password = bytes.TrimSpace(password)
 	// In case any space was removed, generate new characters and add
 	// them to the password to meet the length required
 	if len(password) < int(p.Length) {
@@ -165,8 +170,8 @@ func (p *Password) sanitize(password string) string {
 
 	// Shuffle the password in case it has common patterns until it doesn't
 repeat:
-	if commonPatterns.MatchString(password) {
-		password = shuffle([]rune(password))
+	if commonPatterns.Match(password) {
+		password = shuffle(password)
 		goto repeat
 	}
 
@@ -182,7 +187,7 @@ func (p *Password) validateParams() error {
 		return errors.New("no levels were specified")
 	}
 
-	if strings.ContainsAny(p.Include, p.Exclude) {
+	if bytes.ContainsAny([]byte(p.Include), p.Exclude) {
 		return errors.New("included characters cannot be excluded")
 	}
 
