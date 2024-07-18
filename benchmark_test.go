@@ -1,6 +1,9 @@
 package atoll
 
-import "testing"
+import (
+	mrand "math/rand/v2"
+	"testing"
+)
 
 var password = &Password{
 	Length:  15,
@@ -23,6 +26,28 @@ func BenchmarkNewPassword(b *testing.B) {
 		if _, err := NewPassword(password.Length, password.Levels); err != nil {
 			b.Error(err)
 		}
+	}
+}
+
+func BenchmarkSecretFromString(b *testing.B) {
+	b.StopTimer()
+
+	// Preload strings
+	strs := make([]string, b.N)
+	chars := Lower + Upper + Digit + Space + Special
+
+	for i := 0; i < b.N; i++ {
+		buf := make([]byte, 24)
+		for j := 0; j < 24; j++ {
+			buf[j] = chars[mrand.IntN(len(chars))]
+		}
+		strs[i] = string(buf)
+	}
+
+	b.StartTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = SecretFromString(strs[i])
 	}
 }
 
