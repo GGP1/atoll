@@ -106,3 +106,88 @@ func TestSecondsToCrack(t *testing.T) {
 		})
 	}
 }
+
+func TestSecretFromString(t *testing.T) {
+	cases := []struct {
+		expected Secret
+		str      string
+	}{
+		{
+			str: "abc",
+			expected: &Password{
+				Length: 3,
+				Levels: []Level{Lower},
+				Repeat: false,
+			},
+		},
+		{
+			str: "aBc",
+			expected: &Password{
+				Length: 3,
+				Levels: []Level{Lower, Upper},
+				Repeat: false,
+			},
+		},
+		{
+			str: "aB1",
+			expected: &Password{
+				Length: 3,
+				Levels: []Level{Lower, Upper, Digit},
+				Repeat: false,
+			},
+		},
+		{
+			str: "aB1 _",
+			expected: &Password{
+				Length: 5,
+				Levels: []Level{Lower, Upper, Digit, Space, Special},
+				Repeat: false,
+			},
+		},
+		{
+			str: "aBa",
+			expected: &Password{
+				Length: 3,
+				Levels: []Level{Lower, Upper},
+				Repeat: true,
+			},
+		},
+		{
+			str: "KTPBv0y~e\\wj,kA]>!jgdG\"q",
+			expected: &Password{
+				Length: 24,
+				Levels: []Level{Lower, Upper, Digit, Special},
+				Repeat: true,
+			},
+		},
+		{
+			str: "世界",
+			expected: &Password{
+				Length: 6, // String contains multi-byte characters
+				Levels: []Level{Lower, Upper, Digit, Space, Special},
+				Repeat: false,
+			},
+		},
+		{
+			str: "परीक्षा",
+			expected: &Password{
+				Length: 21, // String contains multi-byte characters
+				Levels: []Level{Lower, Upper, Digit, Space, Special},
+				Repeat: false,
+			},
+		},
+		{
+			str:      "",
+			expected: &Password{},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.str, func(t *testing.T) {
+			got := SecretFromString(tc.str)
+			if got.Entropy() != tc.expected.Entropy() {
+				t.Errorf("Expected %f, got %f", tc.expected.Entropy(), got.Entropy())
+			}
+		})
+	}
+}
