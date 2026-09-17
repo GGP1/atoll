@@ -2,8 +2,11 @@ package atoll
 
 import (
 	"bytes"
+	"math"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestPassword(t *testing.T) {
@@ -167,6 +170,140 @@ func TestInvalidPassword(t *testing.T) {
 	}
 }
 
+// TestPasswordConcurrency makes sure that passwords generated concurrently don't share
+// any memory, run it with the race detector enabled.
+func TestPasswordConcurrency(t *testing.T) {
+	var wg sync.WaitGroup
+
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			for j := 0; j < 50; j++ {
+				password, err := NewPassword(12, []Level{Lower, Upper, Digit, Special})
+				if err != nil {
+					t.Error(err)
+					return
+				}
+
+				if len(password) != 12 {
+					t.Errorf("Expected a password of 12 characters, got %d", len(password))
+					return
+				}
+
+				if bytes.IndexByte(password, 0) != -1 {
+					t.Errorf("The password contains characters outside the pool: %q", password)
+					return
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+}
+
+// TestPasswordTermination covers the cases that used to loop forever or panic.
+func TestPasswordTermination(t *testing.T) {
+	cases := map[string]*Password{
+		"duplicated excluded characters": {
+			Length:  2,
+			Levels:  []Level{Level("ab")},
+			Exclude: "aab",
+			Repeat:  true,
+		},
+		"included characters cover a level": {
+			Length:  11,
+			Levels:  []Level{Digit},
+			Include: "0123456789",
+			Repeat:  false,
+		},
+		"length higher than the real capacity": {
+			Length:  27,
+			Levels:  []Level{Lower},
+			Include: "abcdefghijklmnopqrs",
+			Repeat:  false,
+		},
+		"pool of spaces only": {
+			Length: 1,
+			Levels: []Level{Space},
+			Repeat: false,
+		},
+		"included character repeated without repetition": {
+			Length:  8,
+			Levels:  []Level{Lower},
+			Include: "aa",
+			Repeat:  false,
+		},
+	}
+
+	for k, tc := range cases {
+		t.Run(k, func(t *testing.T) {
+			done := make(chan struct{})
+
+			go func() {
+				defer close(done)
+
+				if _, err := tc.Generate(); err == nil {
+					t.Errorf("Expected %q error, got nil", k)
+				}
+			}()
+
+			select {
+			case <-done:
+			case <-time.After(10 * time.Second):
+				t.Fatalf("Generate() did not terminate")
+			}
+		})
+	}
+}
+
+// TestPasswordExactCapacity uses every single character of the pool, the space trimmed
+// by the sanitizer may leave no character to replace it with.
+func TestPasswordExactCapacity(t *testing.T) {
+	for i := 0; i < 50; i++ {
+		p := &Password{
+			Length: uint64(len(Lower) + len(Space)),
+			Levels: []Level{Lower, Space},
+			Repeat: false,
+		}
+
+		password, err := p.Generate()
+		if err != nil {
+			continue
+		}
+
+		if len(password) != int(p.Length) {
+			t.Fatalf("Expected a password of %d characters, got %d: %q", p.Length, len(password), password)
+		}
+	}
+}
+
+// TestPasswordLevelSatisfiedByInclude verifies that a level covered by the characters
+// to include doesn't make the generation fail.
+func TestPasswordLevelSatisfiedByInclude(t *testing.T) {
+	p := &Password{
+		Length:  12,
+		Levels:  []Level{Digit, Lower},
+		Include: "0123456789",
+		Repeat:  false,
+	}
+
+	password, err := p.Generate()
+	if err != nil {
+		t.Fatalf("Generate() failed: %v", err)
+	}
+
+	if len(password) != int(p.Length) {
+		t.Errorf("Expected a password of %d characters, got %d", p.Length, len(password))
+	}
+
+	if !bytes.ContainsAny(password, string(Lower)) {
+		t.Errorf("Expected the password %q to contain a lowercase character", password)
+	}
+}
+
 func TestNewPassword(t *testing.T) {
 	length := 15
 	password, err := NewPassword(uint64(length), []Level{Lower, Upper, Digit})
@@ -241,9 +378,14 @@ func TestRandInsert(t *testing.T) {
 	char1 := 'a'
 	char2 := 'b'
 
-	password := []byte{}
-	password = p.randInsert(password, byte(char1))
-	password = p.randInsert(password, byte(char2))
+	password, err := p.randInsert([]byte{}, byte(char1))
+	if err != nil {
+		t.Fatalf("randInsert() failed: %v", err)
+	}
+	password, err = p.randInsert(password, byte(char2))
+	if err != nil {
+		t.Fatalf("randInsert() failed: %v", err)
+	}
 	pwd := string(password)
 
 	if pwd != "ab" && pwd != "ba" {
@@ -261,7 +403,10 @@ func TestSanitize(t *testing.T) {
 	p.pool = []byte(string(Lower) + string(Upper) + string(Digit))
 
 	for _, tc := range cases {
-		got := p.sanitize(tc)
+		got, err := p.sanitize(tc)
+		if err != nil {
+			t.Fatalf("sanitize() failed: %v", err)
+		}
 
 		if commonPatterns.Match(got) {
 			t.Errorf("%q still contains common patterns", got)
@@ -281,15 +426,61 @@ func TestSanitize(t *testing.T) {
 }
 
 func TestPasswordEntropy(t *testing.T) {
-	p := &Password{
-		Length:  20,
-		Levels:  []Level{Lower, Upper, Digit, Space, Special},
-		Exclude: "a1r/ö",
+	cases := []struct {
+		p        *Password
+		desc     string
+		expected float64
+	}{
+		{
+			desc: "Repetition",
+			p: &Password{
+				Length:  20,
+				Levels:  []Level{Lower, Upper, Digit, Space, Special},
+				Exclude: "a1r/ö",
+				Repeat:  true,
+			},
+			// 20 characters taken from a pool of 91
+			expected: 130.15589280397393,
+		},
+		{
+			desc: "Without repetition",
+			p: &Password{
+				Length:  20,
+				Levels:  []Level{Lower, Upper, Digit, Space, Special},
+				Exclude: "a1r/ö",
+			},
+			// 20 characters sampled without replacement from a pool of 91
+			expected: 126.90201756696135,
+		},
+		{
+			desc: "Included characters are known",
+			p: &Password{
+				Length:  16,
+				Levels:  []Level{Lower, Upper, Digit},
+				Include: "a&1",
+				Repeat:  true,
+			},
+			// 13 characters taken from a pool of 62, "a&1" adds nothing
+			expected: 13 * math.Log2(62),
+		},
+		{
+			desc: "Only included characters",
+			p: &Password{
+				Length:  3,
+				Levels:  []Level{Lower},
+				Include: "abc",
+				Repeat:  true,
+			},
+			expected: 0,
+		},
 	}
-	expected := 130.15589280397393
 
-	got := p.Entropy()
-	if got != expected {
-		t.Errorf("Expected %f, got %f", expected, got)
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			got := tc.p.Entropy()
+			if got != tc.expected {
+				t.Errorf("Expected %f, got %f", tc.expected, got)
+			}
+		})
 	}
 }

@@ -21,7 +21,7 @@ func NewSecret(secret Secret) ([]byte, error) {
 	return secret.Generate()
 }
 
-// Keyspace returns the set of all possible permutations of the generated key (poolLength ^ keyLength).
+// Keyspace returns the set of all possible permutations of the generated key (2 ^ entropy).
 //
 // On average, half the key space must be searched to find the solution (keyspace/2).
 func Keyspace(secret Secret) float64 {
@@ -39,6 +39,11 @@ func SecondsToCrack(secret Secret) float64 {
 //
 // Given the complexity to determine if the secret is a passphrase when separators are a custom set
 // of characters, it will always be of type Password.
+//
+// The secret returned is an approximation used to estimate the strength of the string: it assumes
+// that every character was randomly chosen from the levels detected. Strings that weren't generated
+// that way (a passphrase or a secret picked by a human, for instance) will have their entropy
+// overestimated.
 func SecretFromString(str string) Secret {
 	if len(str) == 0 {
 		return &Password{}
