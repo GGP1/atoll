@@ -42,7 +42,7 @@ import (
 func main() {
     p := &atoll.Password{
         Length: 16,
-        Levels: []int{atoll.Lower, atoll.Upper, atoll.Digit},
+        Levels: []atoll.Level{atoll.Lower, atoll.Upper, atoll.Digit},
         Include: "a&1",
         Repeat: true,
     }
@@ -75,7 +75,7 @@ Head over [example_test.go](/example_test.go) to see more examples.
 
 ### Password levels
 
-Atoll guarantees that the password will contain at least one of the characters of each level selected (except Space<sup>[1](#one)</sup>), only if the length of the password is higher than the number of levels.
+Atoll guarantees that the password will contain at least one of the characters of each level selected (except Space<sup>[1](#one)</sup>), only if the length of the password is higher than the number of levels. A level that is already represented by one of the characters to include isn't added twice.
 
 1. Lowecases (a, b, c...)
 2. Uppercases (A, B, C...)
@@ -83,13 +83,15 @@ Atoll guarantees that the password will contain at least one of the characters o
 4. Space
 5. Special (!, $, %...)
 
+Space cannot be the only level used, the sanitizer trims leading and trailing spaces so the resulting secret would be degenerate, an error is returned instead.
+
 ### Passphrases options
 
 Atoll offers 3 ways of generating a passphrase:
 
-- **Without** a list (*NoList*): generates random numbers that determine the word length (between 3 and 12 letters) and if the letter is either a vowel or a constant. Note that using a list makes the potential attacker job harder.
+- **Without** a list (*NoList*): generates random numbers that determine the word length (between 3 and 12 letters) and if the letter is either a vowel or a constant. Note that using a list makes the potential attacker job harder. Letters aren't uniformly distributed (a vowel is picked with a probability of 4/11 and a consonant with 7/11), each one of them carries ≈4.585 bits instead of the log2(26)≈4.700 of a uniform alphabet.
 
-- With a **Word** list (*WordList*): random words are taken from a 18,235 long word list.
+- With a **Word** list (*WordList*): random words are taken from a 18,325 long word list.
     
 - With a **Syllable** list (*SyllableList*): random syllables are taken from a 10,129 long syllable list.
 
@@ -103,7 +105,13 @@ Atoll uses the "crypto/rand" package to generate **cryptographically secure** ra
 
 Entropy is a **measure of the uncertainty of a system**. The concept is a difficult one to grasp fully and is confusing, even to experts. Strictly speaking, any given passphrase has an entropy of zero because it is already chosen. It is the method you use to randomly select your passphrase that has entropy. Entropy tells how hard it will be to guess the passphrase itself even if an attacker knows the method you used to select your passphrase. A passphrase is more secure if it is selected using a method that has more entropy. Entropy is measured in bits. The outcome of a single coin toss -- "heads or tails" -- has one bit of entropy. - *Arnold G. Reinhold*.
 
-> Entropy = log2(poolLength ^ secretLength)
+> Entropy = log2(poolLength ^ randomLength)
+
+Where *randomLength* is the number of characters/words that are **randomly chosen**. As the attacker is assumed to know the method used, the characters and words that the user includes are fixed and known values, they don't add entropy to the secret (they reduce it, as they take the place of a random one).
+
+When character repetition is turned off, characters are sampled *without replacement* and the pool shrinks by one on every character used, hence the entropy is `log2(pool · (pool-1) · … · (pool-randomLength+1))`.
+
+The values returned are an approximation: the randomness of the positions in which the included characters/words are inserted isn't taken into account (it errs on the low side), while guaranteeing one character of each level and re-shuffling the secrets that contain common patterns make the distribution slightly non-uniform (on the high side).
 
 The French National Cybersecurity Agency (ANSSI) recommends secrets having a minimum of 100 bits when it comes to passwords or secret keys for encryption systems that absolutely must be secure. In fact, the agency recommends 128 bits to guarantee security for several years. It considers 64 bits to be very small (very weak); 64 to 80 bits to be small; and 80 to 100 bits to be medium (moderately strong).
 
@@ -111,7 +119,7 @@ The French National Cybersecurity Agency (ANSSI) recommends secrets having a min
 
 Keyspace is the set of all possible permutations of a key. On average, half the key space must be searched to find the solution.
 
-> Keyspace = poolLength ^ secretLength
+> Keyspace = 2 ^ entropy
 
 ### Seconds to crack
 
