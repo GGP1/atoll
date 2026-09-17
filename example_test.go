@@ -75,5 +75,5 @@ func ExampleKeyspace() {
 	}
 
 	fmt.Println(atoll.Keyspace(p))
-	// Output: 3.089157759999998e+08
+	// Output: 1.6576559999999967e+08
 }

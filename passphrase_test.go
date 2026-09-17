@@ -3,6 +3,7 @@ package atoll
 import (
 	"bytes"
 	"math"
+	"sync"
 	"testing"
 )
 
@@ -127,13 +128,127 @@ func TestExcludeWords(t *testing.T) {
 
 	for k, tc := range cases {
 		t.Run(k, func(t *testing.T) {
-			tc.excludeWords()
+			if err := tc.excludeWords(); err != nil {
+				t.Fatalf("excludeWords() failed: %v", err)
+			}
 
 			for _, exc := range tc.Exclude {
 				for _, word := range tc.words {
 					if exc == string(word) {
 						t.Errorf("Found undesired word %q", exc)
 					}
+				}
+			}
+		})
+	}
+}
+
+// TestPassphraseConcurrency makes sure that passphrases generated concurrently don't
+// share any memory, run it with the race detector enabled.
+func TestPassphraseConcurrency(t *testing.T) {
+	var wg sync.WaitGroup
+
+	for _, l := range []list{NoList, WordList, SyllableList} {
+		for i := 0; i < 4; i++ {
+			wg.Add(1)
+
+			go func(l list) {
+				defer wg.Done()
+
+				for j := 0; j < 25; j++ {
+					passphrase, err := NewPassphrase(5, l)
+					if err != nil {
+						t.Error(err)
+						return
+					}
+
+					if bytes.IndexByte(passphrase, 0) != -1 {
+						t.Errorf("The passphrase contains wiped words: %q", passphrase)
+						return
+					}
+				}
+			}(l)
+		}
+	}
+
+	wg.Wait()
+}
+
+// TestExcludeWordsCustomList makes sure that excluded words are replaced when the list
+// used is not one of the built-in ones.
+func TestExcludeWordsCustomList(t *testing.T) {
+	calls := 0
+	list := func(p *Passphrase, length int) {
+		for i := 0; i < length; i++ {
+			calls++
+			if calls == 1 {
+				p.words[i] = []byte("bad")
+				continue
+			}
+
+			p.words[i] = []byte("good")
+		}
+	}
+
+	p := &Passphrase{
+		Length:    2,
+		Separator: " ",
+		List:      list,
+		Exclude:   []string{"bad"},
+	}
+
+	passphrase, err := p.Generate()
+	if err != nil {
+		t.Fatalf("Generate() failed: %v", err)
+	}
+
+	if bytes.Contains(passphrase, []byte("bad")) {
+		t.Errorf("Found undesired word in %q", passphrase)
+	}
+}
+
+// TestExcludeWordsExhausted verifies that excluding every word of the list returns an
+// error instead of recursing/looping forever.
+func TestExcludeWordsExhausted(t *testing.T) {
+	list := func(p *Passphrase, length int) {
+		for i := 0; i < length; i++ {
+			p.words[i] = []byte("only")
+		}
+	}
+
+	p := &Passphrase{
+		Length:  3,
+		List:    list,
+		Exclude: []string{"only"},
+	}
+
+	if _, err := p.Generate(); err == nil {
+		t.Error("Expected an error, got nil")
+	}
+}
+
+// TestListsAreNotMutated makes sure that the word/syllable lists aren't modified when
+// the words of a generated passphrase are wiped.
+func TestListsAreNotMutated(t *testing.T) {
+	cases := map[string]struct {
+		list  list
+		words [][]byte
+	}{
+		"Word list":     {list: WordList, words: wordList},
+		"Syllable list": {list: SyllableList, words: syllableList},
+	}
+
+	for k, tc := range cases {
+		t.Run(k, func(t *testing.T) {
+			for i := 0; i < 10; i++ {
+				if _, err := NewPassphrase(6, tc.list); err != nil {
+					t.Fatalf("NewPassphrase() failed: %v", err)
+				}
+			}
+
+			for _, word := range tc.words {
+				if bytes.IndexByte(word, 0) != -1 {
+					t.Fatalf("The list was modified, it contains the word %q", word)
 				}
 			}
 		})
@@ -151,14 +266,16 @@ func TestPassphraseEntropy(t *testing.T) {
 			list: NoList,
 		},
 		{
-			desc:     "Word list",
-			list:     WordList,
-			expected: 56.64641721601138,
+			desc: "Word list",
+			list: WordList,
+			// 3 words (the included one is known) out of a list of 18325
+			expected: 3 * math.Log2(18325),
 		},
 		{
-			desc:     "Syllable list",
-			list:     SyllableList,
-			expected: 53.225386214754,
+			desc: "Syllable list",
+			list: SyllableList,
+			// 3 syllables (the included one is known) out of a list of 10129
+			expected: 3 * math.Log2(10129),
 		},
 	}
 
@@ -171,12 +288,15 @@ func TestPassphraseEntropy(t *testing.T) {
 				Include:   []string{"atoll"},
 			}
 
-			p.Generate()
+			if _, err := p.Generate(); err != nil {
+				t.Fatalf("Generate() failed: %v", err)
+			}
 
 			// NoList entropy changes everytime as it generates random words
-			if getFuncName(tc.list) == "NoList" {
-				secretLength := len(bytes.Join(p.words, []byte(""))) - (len(p.Separator) * int(p.Length))
-				tc.expected = math.Log2(math.Pow(float64(26), float64(secretLength)))
+			if getFuncName(tc.list) == noListType {
+				// The separator isn't part of the secret and the included word is known
+				letters := len(bytes.Join(p.words, []byte(""))) - len("atoll")
+				tc.expected = float64(letters) * letterEntropy
 			}
 
 			got := p.Entropy()
@@ -184,6 +304,18 @@ func TestPassphraseEntropy(t *testing.T) {
 				t.Errorf("Expected %f, got %f", tc.expected, got)
 			}
 		})
+	}
+}
+
+func TestPassphraseEntropyCustomList(t *testing.T) {
+	p := &Passphrase{
+		Length: 4,
+		List:   func(p *Passphrase, length int) {},
+	}
+
+	// The pool of words of a custom list cannot be determined
+	if got := p.Entropy(); got != 0 {
+		t.Errorf("Expected 0, got %f", got)
 	}
 }
 
